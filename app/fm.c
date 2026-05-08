@@ -203,6 +203,37 @@ void FM_EraseChannels(void)
 	memset(gFM_Channels, 0xFF, sizeof(gFM_Channels));
 }
 
+#ifdef ENABLE_FM_SI4732
+/* FM：存储为 10 kHz 整数（显示 MHz = 值/100）。手调按 0.05 MHz 网格：
+ * 未在网格上时：上调 → 向上取整到 0.05；下调 → 向下取整到 0.05。
+ * 已在网格上：上调 +0.05，下调 -0.05。（例：100.04 下→100.00→99.95；上→100.05→100.10） */
+static uint16_t FM_NextOn05MhzGrid(uint16_t cur, int8_t stepDir)
+{
+	const uint16_t lo = BK1080_GetFreqLoLimit(gEeprom.FM_Band);
+	const uint16_t hi = BK1080_GetFreqHiLimit(gEeprom.FM_Band);
+	int32_t n;
+
+	if (stepDir > 0) {
+		if ((cur % 5u) == 0u)
+			n = (int32_t)cur + 5;
+		else
+			n = (int32_t)((cur / 5u + 1u) * 5u);
+	} else {
+		if ((cur % 5u) == 0u)
+			n = (int32_t)cur - 5;
+		else
+			n = (int32_t)((cur / 5u) * 5u);
+	}
+
+	if (n < (int32_t)lo)
+		n = (int32_t)hi;
+	else if (n > (int32_t)hi)
+		n = (int32_t)lo;
+
+	return (uint16_t)n;
+}
+#endif
+
 void FM_Tune(uint16_t Frequency, int8_t Step, bool bFlag)
 {
 	AUDIO_AudioPathOff_FM();
@@ -317,35 +348,6 @@ static uint16_t FM_AM_ParseInputFreq(void)
 	if (v < 500) v = 500;
 	if (v > 30000) v = 30000;
 	return (uint16_t)v;
-}
-
-/* FM：存储为 10 kHz 整数（显示 MHz = 值/100）。手调按 0.05 MHz 网格：
- * 未在网格上时：上调 → 向上取整到 0.05；下调 → 向下取整到 0.05。
- * 已在网格上：上调 +0.05，下调 -0.05。（例：100.04 下→100.00→99.95；上→100.05→100.10） */
-static uint16_t FM_NextOn05MhzGrid(uint16_t cur, int8_t stepDir)
-{
-	const uint16_t lo = BK1080_GetFreqLoLimit(gEeprom.FM_Band);
-	const uint16_t hi = BK1080_GetFreqHiLimit(gEeprom.FM_Band);
-	int32_t n;
-
-	if (stepDir > 0) {
-		if ((cur % 5u) == 0u)
-			n = (int32_t)cur + 5;
-		else
-			n = (int32_t)((cur / 5u + 1u) * 5u);
-	} else {
-		if ((cur % 5u) == 0u)
-			n = (int32_t)cur - 5;
-		else
-			n = (int32_t)((cur / 5u) * 5u);
-	}
-
-	if (n < (int32_t)lo)
-		n = (int32_t)hi;
-	else if (n > (int32_t)hi)
-		n = (int32_t)lo;
-
-	return (uint16_t)n;
 }
 #endif
 
@@ -665,6 +667,10 @@ static void Key_UP_DOWN(uint8_t state, int8_t Step)
 		if (gAM_OptionFocus == 3) {
 			const int step = (state == BUTTON_EVENT_HELD) ? (Step * 10) : (Step * 5);
 			int32_t b = (int32_t)gAM_BFO_Hz + (int32_t)step;
+			/* ±5 步进会跳过 0：若从正/负跨过零点，先落到 0（否则如 -1+5=4 永远调不到 0） */
+			if (gAM_BFO_Hz != 0 && b != 0 &&
+			    ((gAM_BFO_Hz < 0 && b > 0) || (gAM_BFO_Hz > 0 && b < 0)))
+				b = 0;
 			if (b < -8000) b = -8000;
 			else if (b > 8000) b = 8000;
 			gAM_BFO_Hz = (int16_t)b;
