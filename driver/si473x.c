@@ -199,6 +199,13 @@ void SI47XX_PowerUp() {
   SI47XX_SetFreq(Read_FreqSaved() / divider);
 }
 
+/* SSB 边带截止与音频带宽联动（同 ats-mini：0.5k 与 ≥3k 用 0；1k/1.2k/2.2k 用 1） */
+static uint8_t SI47XX_SsbSidebandCutoffForBwIndex(uint8_t am_bw_index) {
+  if (am_bw_index > 6U)
+    am_bw_index = 6U;
+  return (am_bw_index >= 1U && am_bw_index <= 3U) ? 1U : 0U;
+}
+
 static void SI47XX_SsbSetup(uint8_t AUDIOBW, uint8_t SBCUTFLT, uint8_t AVC_DIVIDER,
     uint8_t AVCEN, uint8_t SMUTESEL, uint8_t DSP_AFCDIS) {
   uint8_t lo = (AUDIOBW & 0x0F) | ((SBCUTFLT & 0x0F) << 4);
@@ -232,8 +239,8 @@ static void SI47XX_PatchPowerUp(void) {
 
   SI47XX_downloadPatch();
   SI47XX_ApplyAmAntennaInput(); /* 单边带也按当前 FMI/AMI 选择 */
-  /* AUDIOBW: 0=1.2k 1=2.2k 2=3k 3=4k；收窄带宽降噪，2.2k 兼顾语音与噪声 */
-  SI47XX_SsbSetup(1, 2, 0, 1, 0, 1); /* AUDIOBW=2.2kHz, SBCUTFLT=2, AVC=1, DSP_AFCDIS=1 */
+  /* AUDIOBW=1 → 2.2kHz；SBCUTFLT 与 BW 索引 3（2.2k 档）联动 */
+  SI47XX_SsbSetup(1, SI47XX_SsbSidebandCutoffForBwIndex(3), 0, 1, 0, 1);
 
   AUDIO_AudioPathOn();
   setVolume(63);
@@ -348,6 +355,6 @@ void SI47XX_SetAMBandwidth(uint8_t index) {
   if (si4732mode == SI47XX_AM) {
     sendProperty(PROP_AM_CHANNEL_FILTER, (uint16_t)am_bw_amchflt[index] | (0U << 8));
   } else if (SI47XX_IsSSB() || si4732mode == SI47XX_CW) {
-    SI47XX_SsbSetup(am_bw_ssb_audiobw[index], 2, 0, 1, 0, 1);
+    SI47XX_SsbSetup(am_bw_ssb_audiobw[index], SI47XX_SsbSidebandCutoffForBwIndex(index), 0, 1, 0, 1);
   }
 }
