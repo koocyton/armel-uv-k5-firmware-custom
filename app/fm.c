@@ -708,17 +708,7 @@ static void Key_UP_DOWN(uint8_t state, int8_t Step)
 	}
 	else {
 #ifdef ENABLE_FM_SI4732
-		/* FM：EEPROM 以 10 kHz 为单位，0.05 MHz/步 ⇒ ±5 */
-		{
-			int32_t f = (int32_t)gEeprom.FM_SelectedFrequency + (int32_t)Step * 5;
-			const uint16_t lo = BK1080_GetFreqLoLimit(gEeprom.FM_Band);
-			const uint16_t hi = BK1080_GetFreqHiLimit(gEeprom.FM_Band);
-			if (f < (int32_t)lo)
-				f = hi;
-			else if (f > (int32_t)hi)
-				f = lo;
-			gEeprom.FM_SelectedFrequency = (uint16_t)f;
-		}
+		gEeprom.FM_SelectedFrequency = FM_NextOn05MhzGrid(gEeprom.FM_SelectedFrequency, Step);
 #else
 		uint16_t Frequency = gEeprom.FM_SelectedFrequency + Step;
 
