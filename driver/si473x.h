@@ -570,6 +570,8 @@ void SI47XX_SetAMAgcAtt(bool agcOn, uint8_t attIndex);
 void SI47XX_SetAMLna(uint8_t index);
 /* AM/SSB BW: index 0..6 = 0.5, 1.0, 1.2, 2.2, 3.0, 4.0, 5.0 kHz */
 void SI47XX_SetAMBandwidth(uint8_t index);
+/* AM/SSB/CW：拍频偏移（Hz），文档属 SSB BFO，AM 下部分固件亦可用其微调 */
+void SI47XX_SetBFO(int16_t hz);
 void SI47XX_SetSeekFmLimits(uint16_t bottom, uint16_t top);
 void SI47XX_SetSeekAmLimits(uint16_t bottom, uint16_t top);
 extern SI47XX_MODE si4732mode;

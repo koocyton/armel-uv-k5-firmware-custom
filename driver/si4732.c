@@ -26,7 +26,8 @@ void BK1080_Init(uint16_t freq, uint8_t band)
 		GPIO_ClearBit(&GPIOB->DATA, GPIOB_PIN_BK1080);
 		SYSTEM_DelayMs(80);
 		si4732mode = SI47XX_FM;
-		SI47XX_FirstPowerUp((uint16_t)((unsigned long)freq * 10U));
+		/* freq 与 EEPROM 一致：10 kHz 单位（8750=87.50 MHz） */
+		SI47XX_FirstPowerUp(freq);
 	} else {
 		SI47XX_PowerDown();
 		GPIO_SetBit(&GPIOB->DATA, GPIOB_PIN_BK1080);
@@ -36,7 +37,7 @@ void BK1080_Init(uint16_t freq, uint8_t band)
 void BK1080_SetFrequency(uint16_t frequency, uint8_t band)
 {
 	(void)band;
-	SI47XX_SetFreq((uint16_t)((unsigned long)frequency * 10U));
+	SI47XX_SetFreq(frequency);
 }
 
 void BK1080_Mute(bool Mute)
@@ -70,11 +71,12 @@ void BK1080_WriteRegister(BK1080_Register_t Register, uint16_t Value)
 uint16_t BK1080_GetFreqLoLimit(uint8_t band)
 {
 	(void)band;
-	return SI47XX_IsAMFamily() ? 500 : 875;
+	/* AM：kHz；FM：10 kHz 步（与 SI47XX_SetFreq 一致） */
+	return SI47XX_IsAMFamily() ? 500 : 8750;
 }
 
 uint16_t BK1080_GetFreqHiLimit(uint8_t band)
 {
 	(void)band;
-	return SI47XX_IsAMFamily() ? 30000 : 1080;
+	return SI47XX_IsAMFamily() ? 30000 : 10800;
 }

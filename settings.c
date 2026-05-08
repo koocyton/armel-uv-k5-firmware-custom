@@ -98,16 +98,28 @@ void SETTINGS_InitEEPROM(void)
 
 		gEeprom.FM_Band = fmCfg.band;
 		//gEeprom.FM_Space = fmCfg.space;
+#ifdef ENABLE_FM_SI4732
+		/* 旧版 EEPROM：FM 频率为 0.1 MHz（640–1080）；Si4732 使用与 SetFreq 一致的 10 kHz 单位 */
+		if (fmCfg.selFreq < 2000u && fmCfg.selFreq >= 640u)
+			fmCfg.selFreq = (uint16_t)((uint32_t)fmCfg.selFreq * 10u);
+#endif
 		gEeprom.FM_SelectedFrequency = 
 			(fmCfg.selFreq >= BK1080_GetFreqLoLimit(gEeprom.FM_Band) && fmCfg.selFreq <= BK1080_GetFreqHiLimit(gEeprom.FM_Band)) ? 
 				fmCfg.selFreq : BK1080_GetFreqLoLimit(gEeprom.FM_Band);
-			
+		
 		gEeprom.FM_SelectedChannel = fmCfg.selChn;
 		gEeprom.FM_IsMrMode        = fmCfg.isMrMode;
 	}
 
 	// 0E40..0E67
 	EEPROM_ReadBuffer(0x0E40, gFM_Channels, sizeof(gFM_Channels));
+#ifdef ENABLE_FM_SI4732
+	for (unsigned ch = 0; ch < ARRAY_SIZE(gFM_Channels); ch++) {
+		uint16_t c = gFM_Channels[ch];
+		if (c != 0xFFFFu && c < 2000u && c >= 640u)
+			gFM_Channels[ch] = (uint16_t)((uint32_t)c * 10u);
+	}
+#endif
 	FM_ConfigureChannelState();
 	#ifdef ENABLE_FM_SI4732
 	FM_LoadAMFrequencyFromEeprom();
@@ -440,6 +452,13 @@ void SETTINGS_SaveFM(void)
 		fmCfg.selFreq  = gEeprom.FM_SelectedFrequency;
 		fmCfg.isMrMode = gEeprom.FM_IsMrMode;
 		fmCfg.band     = gEeprom.FM_Band;
+#ifdef ENABLE_FM_SI4732
+		/* 与 si473x Read_FreqSaved(0x0E8C) 一致：10 kHz × 1000，供 PowerUp 恢复 FM */
+		{
+			uint32_t w = (uint32_t)gEeprom.FM_SelectedFrequency * 1000U;
+			memcpy(&fmCfg.__raw[4], &w, 4);
+		}
+#endif
 		//fmCfg.space    = gEeprom.FM_Space;
 		EEPROM_WriteBuffer(0x0E88, fmCfg.__raw);
 

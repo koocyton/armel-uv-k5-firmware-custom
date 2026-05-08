@@ -61,11 +61,11 @@ void    FM_Start(void);
 uint16_t FM_GetAM_StepKHz(void);
 bool     FM_IsAMMode(void);
 void     FM_LoadAMFrequencyFromEeprom(void);
-uint8_t  FM_GetAM_OptionFocus(void); /* 0=AGC 1=ATT 2=BW 3=STP */
-bool     FM_GetAM_AGC_On(void);
-uint8_t  FM_GetAM_ATT_Index(void);
+uint8_t  FM_GetAM_OptionFocus(void); /* 0=LNA 1=BW 2=STP 3=BFO */
+uint8_t  FM_GetAM_LnaIndex(void);    /* 0=AGC ON，1..5=ATT 0/1/5/15/26 dB */
 uint8_t  FM_GetAM_BW_Index(void);
 uint8_t  FM_GetAM_StepIndex(void);
+int16_t  FM_GetAM_BFO_Hz(void);
 #endif
 
 #endif

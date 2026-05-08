@@ -58,10 +58,11 @@ uint16_t          gFM_RestoreCountdown_10ms;
 #ifdef ENABLE_FM_SI4732
 /* AM mode: current frequency in kHz (500–30000, MW+SW). Used when si4732mode == SI47XX_AM. */
 static uint16_t gAM_FrequencyKHz = 720;
-/* AM 底部选项：长按 M 切换焦点 0=AGC 1=ATT 2=BW 3=STP；短按 * 修改当前子选项 */
-static uint8_t gAM_OptionFocus = 0;  /* 0=AGC, 1=ATT, 2=BW, 3=STP */
-static bool    gAM_AGC_On = true;   /* AGC 子选项：ON / OFF */
-static uint8_t gAM_ATT_Index = 0;   /* ATT 子选项：0, 1, 5, 15, 26 dB → index 0..4 */
+/* AM 底部选项：短按 M 切换焦点 0=LNA 1=BW 2=STP 3=BFO；短按 * 修改当前子选项 */
+static uint8_t gAM_OptionFocus = 0;
+static int16_t gAM_BFO_Hz = 0;        /* 拍频偏移 ±8000 Hz */
+/* LNA：0=AGC ON，1..5 对应 SI47XX_SetAMLna（ATT 0/1/5/15/26 dB） */
+static uint8_t gAM_LnaIndex = 0;
 static uint8_t gAM_BW_Index = 2;    /* 0..6 = 0.5,1,1.2,2.2,3,4,5 kHz，默认 1.2 */
 /* Step index 0..4 = 1, 5, 10, 100, 1000 kHz，显示 1K 5K 10K 100K 1000K */
 static uint8_t gAM_StepIndex = 0;   /* 默认 1k */
@@ -79,14 +80,15 @@ uint16_t FM_GetAM_StepKHz(void)
 }
 
 uint8_t FM_GetAM_OptionFocus(void) { return gAM_OptionFocus; }
-bool    FM_GetAM_AGC_On(void)      { return gAM_AGC_On; }
-uint8_t FM_GetAM_ATT_Index(void)   { return gAM_ATT_Index; }
+uint8_t FM_GetAM_LnaIndex(void)    { return gAM_LnaIndex; }
 uint8_t FM_GetAM_BW_Index(void)   { return gAM_BW_Index; }
 uint8_t FM_GetAM_StepIndex(void)   { return gAM_StepIndex; }
+int16_t FM_GetAM_BFO_Hz(void)      { return gAM_BFO_Hz; }
 
 static void FM_ApplyAMOptions(void) {
-	SI47XX_SetAMAgcAtt(gAM_AGC_On, gAM_ATT_Index);
+	SI47XX_SetAMLna(gAM_LnaIndex);
 	SI47XX_SetAMBandwidth(gAM_BW_Index);
+	SI47XX_SetBFO(gAM_BFO_Hz);
 }
 
 bool FM_IsAMMode(void)
@@ -100,15 +102,24 @@ static void FM_SaveAMFreqToEeprom(void)
 	EEPROM_ReadBuffer(FM_EEPROM_AM_KHZ, buf, 8);
 	buf[0] = (uint8_t)(gAM_FrequencyKHz & 0xFF);
 	buf[1] = (uint8_t)(gAM_FrequencyKHz >> 8);
+	buf[2] = (uint8_t)((uint16_t)gAM_BFO_Hz & 0xFF);
+	buf[3] = (uint8_t)(((uint16_t)gAM_BFO_Hz >> 8) & 0xFF);
+	buf[4] = gAM_LnaIndex;
 	EEPROM_WriteBuffer(FM_EEPROM_AM_KHZ, buf);
 }
 
 void FM_LoadAMFrequencyFromEeprom(void)
 {
-	uint16_t khz;
-	EEPROM_ReadBuffer(FM_EEPROM_AM_KHZ, (uint8_t *)&khz, 2);
+	uint8_t buf[8];
+	EEPROM_ReadBuffer(FM_EEPROM_AM_KHZ, buf, 8);
+	uint16_t khz = (uint16_t)buf[0] | ((uint16_t)buf[1] << 8);
 	if (khz >= 500 && khz <= 30000)
 		gAM_FrequencyKHz = khz;
+	int16_t bfo = (int16_t)((uint16_t)buf[2] | ((uint16_t)buf[3] << 8));
+	if (bfo >= -8000 && bfo <= 8000)
+		gAM_BFO_Hz = bfo;
+	if (buf[4] <= 5)
+		gAM_LnaIndex = buf[4];
 }
 #endif
 
@@ -336,6 +347,11 @@ static void Key_DIGITS(KEY_Code_t Key, uint8_t state)
 			gRequestDisplayScreen = DISPLAY_FM;
 			return;
 		}
+		if (State == STATE_FREQ_MODE && !SI47XX_IsAMFamily() && gInputBoxIndex >= 5) {
+			gBeepToPlay = BEEP_500HZ_60MS_DOUBLE_BEEP_OPTIONAL;
+			gRequestDisplayScreen = DISPLAY_FM;
+			return;
+		}
 #endif
 		INPUTBOX_Append(Key);
 
@@ -354,7 +370,37 @@ static void Key_DIGITS(KEY_Code_t Key, uint8_t state)
 				}
 				return;
 			}
+			/* FM (Si4732)：5 位数字 = XXX.XX MHz（10 kHz 单位存 EEPROM） */
+			/* FM: first digit must be 0 or 1 (87–108) */
+			if (gInputBoxIndex == 1) {
+				if (gInputBox[0] > 1) {
+					gInputBox[1] = gInputBox[0];
+					gInputBox[0] = 0;
+					gInputBoxIndex = 2;
+				}
+			}
+			else if (gInputBoxIndex > 4) {
+				uint32_t Frequency;
+
+				gInputBoxIndex = 0;
+				Frequency = StrToUL(INPUTBOX_GetAscii());
+
+				if (Frequency < BK1080_GetFreqLoLimit(gEeprom.FM_Band) || BK1080_GetFreqHiLimit(gEeprom.FM_Band) < Frequency) {
+					gBeepToPlay           = BEEP_500HZ_60MS_DOUBLE_BEEP_OPTIONAL;
+					gRequestDisplayScreen = DISPLAY_FM;
+					return;
+				}
+
+				gEeprom.FM_SelectedFrequency = (uint16_t)Frequency;
+#ifdef ENABLE_VOICE
+				gAnotherVoiceID = (VOICE_ID_t)Key;
 #endif
+				gEeprom.FM_FrequencyPlaying = gEeprom.FM_SelectedFrequency;
+				BK1080_SetFrequency(gEeprom.FM_FrequencyPlaying, gEeprom.FM_Band/*, gEeprom.FM_Space*/);
+				gRequestSaveFM = true;
+				return;
+			}
+#else
 			/* FM: first digit must be 0 or 1 (87–108) */
 			if (gInputBoxIndex == 1) {
 				if (gInputBox[0] > 1) {
@@ -384,6 +430,7 @@ static void Key_DIGITS(KEY_Code_t Key, uint8_t state)
 				gRequestSaveFM = true;
 				return;
 			}
+#endif
 		}
 		else if (gInputBoxIndex == 2) {
 			uint8_t Channel;
@@ -581,8 +628,20 @@ static void Key_UP_DOWN(uint8_t state, int8_t Step)
 	}
 
 #ifdef ENABLE_FM_SI4732
-	/* AM mode: step 1/5/10/50/100/1000 kHz (STAR 改子选项), 500–30000 kHz */
+	/* AM mode: step 1/5/10/50/100/1000 kHz (STAR 改子选项), 500–30000 kHz；焦点 BFO 时改拍频 */
 	if (SI47XX_IsAMFamily()) {
+		if (gAM_OptionFocus == 3) {
+			const int step = (state == BUTTON_EVENT_HELD) ? (Step * 10) : (Step * 5);
+			int32_t b = (int32_t)gAM_BFO_Hz + (int32_t)step;
+			if (b < -8000) b = -8000;
+			else if (b > 8000) b = 8000;
+			gAM_BFO_Hz = (int16_t)b;
+			FM_SaveAMFreqToEeprom();
+			SI47XX_SetBFO(gAM_BFO_Hz);
+			gRequestDisplayScreen = DISPLAY_FM;
+			gUpdateStatus = true;
+			return;
+		}
 		uint16_t step = FM_GetAM_StepKHz();
 		int32_t next = (int32_t)gAM_FrequencyKHz + (int32_t)Step * (int32_t)step;
 		if (next < 500) next = 30000;
@@ -652,19 +711,21 @@ void FM_ProcessKeys(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 				/* 短按 * 修改当前焦点对应的子选项 */
 				switch (gAM_OptionFocus) {
 				case 0:
-					gAM_AGC_On = !gAM_AGC_On;
-					SI47XX_SetAMAgcAtt(gAM_AGC_On, gAM_ATT_Index);
+					gAM_LnaIndex = (uint8_t)((gAM_LnaIndex + 1) % 6);
+					SI47XX_SetAMLna(gAM_LnaIndex);
+					FM_SaveAMFreqToEeprom();
 					break;
 				case 1:
-					gAM_ATT_Index = (gAM_ATT_Index + 1) % 5;
-					SI47XX_SetAMAgcAtt(gAM_AGC_On, gAM_ATT_Index);
-					break;
-				case 2:
 					gAM_BW_Index = (gAM_BW_Index + 1) % 7;
 					SI47XX_SetAMBandwidth(gAM_BW_Index);
 					break;
-				case 3:
+				case 2:
 					gAM_StepIndex = (gAM_StepIndex + 1) % AM_STEP_COUNT;
+					break;
+				case 3:
+					gAM_BFO_Hz = 0;
+					SI47XX_SetBFO(0);
+					FM_SaveAMFreqToEeprom();
 					break;
 				}
 				gUpdateStatus = true;
@@ -678,7 +739,7 @@ void FM_ProcessKeys(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 		case KEY_MENU:
 #ifdef ENABLE_FM_SI4732
 			if (SI47XX_IsAMFamily()) {
-				/* 中短波下：短按 M 在 AGC/ATT/BW/STP 间切换，长按 M 无效 */
+				/* 中短波下：短按 M 在 LNA/BW/STP/BFO 间切换，长按 M 无效 */
 				if (bKeyPressed && !bKeyHeld) {
 					gAM_OptionFocus = (gAM_OptionFocus + 1) % 4;
 					gRequestDisplayScreen = DISPLAY_FM;
@@ -720,7 +781,7 @@ void FM_ProcessKeys(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 						gUpdateStatus = true;
 					} else if (si4732mode == SI47XX_AM) {
 						SI47XX_SwitchMode(SI47XX_FM);
-						SI47XX_SetFreq((uint16_t)((unsigned long)gEeprom.FM_FrequencyPlaying * 10U));
+						SI47XX_SetFreq(gEeprom.FM_FrequencyPlaying);
 						gUpdateStatus = true;
 					} else if (si4732mode == SI47XX_LSB || si4732mode == SI47XX_USB || si4732mode == SI47XX_CW) {
 						SI47XX_MODE next = (si4732mode == SI47XX_USB) ? SI47XX_LSB :

@@ -358,3 +358,7 @@ void SI47XX_SetAMBandwidth(uint8_t index) {
     SI47XX_SsbSetup(am_bw_ssb_audiobw[index], SI47XX_SsbSidebandCutoffForBwIndex(index), 0, 1, 0, 1);
   }
 }
+
+void SI47XX_SetBFO(int16_t hz) {
+  sendProperty(PROP_SSB_BFO, (uint16_t)hz);
+}
