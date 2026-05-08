@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>K5 SSB 补丁写入 (0x3C228)</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; max-width: 560px; margin: 1rem auto; padding: 0 1rem; }
+    h1 { font-size: 1.25rem; }
+    .box { border: 1px solid #ccc; border-radius: 8px; padding: 1rem; margin: 1rem 0; }
+    button { padding: 0.5rem 1rem; margin: 0 0.25rem 0.25rem 0; cursor: pointer; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    input[type="file"] { margin: 0.5rem 0; }
+    #log { background: #f5f5f5; padding: 0.75rem; border-radius: 4px; font-family: monospace; font-size: 0.85rem; white-space: pre-wrap; word-break: break-all; max-height: 280px; overflow-y: auto; }
+    .err { color: #c00; }
+    .ok { color: #080; }
+  </style>
+</head>
+<body>
+  <h1>K5 SSB 补丁写入</h1>
+  <p>通过浏览器连接 K5 对讲机（USB 串口），将 SSB 补丁文件写入 EEPROM 地址 <strong>0x3C228</strong>（约 15832 字节）。需使用 <strong>Chrome / Edge</strong>，并已刷支持 2Mbit EEPROM 与 UART 的固件。</p>
+  <p><strong>使用方式：</strong>对讲机<strong>正常开机</strong>即可写入，<strong>无需</strong>进入固件升级/刷机模式。若 CPS/写频软件已占用串口，请先关闭后再用本页连接。</p>
+
+  <div class="box">
+    <div>
+      <label>补丁文件 (bin，约 15832 字节)：</label><br>
+      <input type="file" id="file" accept=".bin,.hex,application/octet-stream">
+    </div>
+    <div style="margin-top: 0.75rem;">
+      <button id="btnConnect">连接串口</button>
+      <button id="btnWrite" disabled>写入 0x3C228</button>
+    </div>
+  </div>
+
+  <div class="box">
+    <strong>日志</strong>
+    <div id="log"></div>
+  </div>
+
+  <script>
+    (function () {
+      const SSB_EEPROM_ADDR = 0x3C228;
+      const SSB_PATCH_SIZE = 15832;
+      const CHUNK_PAYLOAD = 118;
+      const SYNC = new Uint8Array([0xAB, 0xCD]);
+      const OBFUSCATION = [0x16, 0x6C, 0x14, 0xE6, 0x2E, 0x91, 0x0D, 0x40, 0x21, 0x35, 0xD5, 0x40, 0x13, 0x03, 0xE9, 0x80];
+
+      let port = null;
+      let patchBytes = null;
+      let timestamp = 0;
+      const logEl = document.getElementById('log');
+      const fileEl = document.getElementById('file');
+      const btnConnect = document.getElementById('btnConnect');
+      const btnWrite = document.getElementById('btnWrite');
+
+      function log(msg, isErr) {
+        const line = document.createElement('span');
+        line.className = isErr ? 'err' : '';
+        line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}\n`;
+        logEl.appendChild(line);
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+
+      function delay(ms) {
+        return new Promise(function (r) { setTimeout(r, ms); });
+      }
+
+      function crc16ccitt(buf, len) {
+        let crc = 0;
+        const poly = 0x1021;
+        for (let i = 0; i < len; i++) {
+          crc ^= buf[i] << 8;
+          for (let k = 0; k < 8; k++) {
+            if (crc & 0x8000) crc = (crc << 1) ^ poly;
+            else crc = crc << 1;
+            crc &= 0xFFFF;
+          }
+        }
+        return crc;
+      }
+
+      async function sendPacket(writer, buffer) {
+        const size = buffer.length;
+        const crc = crc16ccitt(buffer, size);
+        const frame = new Uint8Array(2 + 2 + size + 2);
+        frame[0] = SYNC[0]; frame[1] = SYNC[1];
+        frame[2] = size & 0xFF; frame[3] = (size >> 8) & 0xFF;
+        frame.set(buffer, 4);
+        frame[4 + size] = crc & 0xFF;
+        frame[4 + size + 1] = (crc >> 8) & 0xFF;
+        await writer.write(frame);
+      }
+
+      async function cmd0514(writer) {
+        const buf = new Uint8Array(8);
+        buf[0] = 0x14; buf[1] = 0x05;
+        buf[2] = 8; buf[3] = 0;
+        timestamp = Math.floor(Math.random() * 0xFFFFFFFF) >>> 0;
+        const view = new DataView(buf.buffer);
+        view.setUint32(4, timestamp, true);
+        await sendPacket(writer, buf);
+      }
+
+      async function cmd0538Chunk(writer, baseAddr, data) {
+        const dataLen = 2 + data.length;
+        const bodyLen = 2 + 1 + 1 + 4 + dataLen;
+        const totalLen = 4 + bodyLen;
+        const buf = new Uint8Array(totalLen);
+        const v = new DataView(buf.buffer);
+        buf[0] = 0x38; buf[1] = 0x05;
+        v.setUint16(2, bodyLen, true);
+        v.setUint16(4, (baseAddr >> 16) & 0xFFFF, true);
+        buf[6] = dataLen;
+        buf[7] = 0;
+        v.setUint32(8, timestamp, true);
+        buf[12] = baseAddr & 0xFF;
+        buf[13] = (baseAddr >> 8) & 0xFF;
+        buf.set(data, 14);
+        await sendPacket(writer, buf);
+      }
+
+      /**
+       * 固件对每个 0x0538 包会回复一帧数据；若不读取，USB 缓冲塞满后机会阻塞，
+       * 进度会停在约 14xxx/15832。写入期间持续 drain。
+       */
+      function startDrainReader(port) {
+        let cancelled = false;
+        const reader = port.readable.getReader();
+        const promise = (async function () {
+          try {
+            while (!cancelled) {
+              try {
+                const step = await reader.read();
+                if (step.done) break;
+              } catch (e) {
+                if (cancelled || e.name === 'AbortError') break;
+                throw e;
+              }
+            }
+          } finally {
+            try { reader.releaseLock(); } catch (e) { /* ignore */ }
+          }
+        })();
+        return {
+          promise: promise,
+          cancel: async function () {
+            cancelled = true;
+            try { await reader.cancel(); } catch (e) { /* ignore */ }
+          }
+        };
+      }
+
+      async function connect() {
+        if (!('serial' in navigator)) {
+          log('此浏览器不支持 Web Serial，请使用 Chrome 或 Edge。', true);
+          return;
+        }
+        try {
+          port = await navigator.serial.requestPort();
+          await port.open({ baudRate: 115200 });
+          log('串口已打开。对讲机请保持正常开机；无需进入刷机/升级模式。选择补丁文件后可点「写入」。', false);
+          btnConnect.textContent = '已连接';
+          btnConnect.disabled = true;
+        } catch (e) {
+          log('连接失败: ' + e.message, true);
+        }
+      }
+
+      async function writePatch() {
+        if (!port || !patchBytes) {
+          log('请先选择补丁文件并连接串口。', true);
+          return;
+        }
+        if (patchBytes.length > SSB_PATCH_SIZE) {
+          log('补丁长度 ' + patchBytes.length + ' 超过 ' + SSB_PATCH_SIZE + '，将只写入前 ' + SSB_PATCH_SIZE + ' 字节。', false);
+        }
+        const toWrite = patchBytes.subarray(0, SSB_PATCH_SIZE);
+        const totalChunks = Math.ceil(toWrite.length / CHUNK_PAYLOAD);
+        btnWrite.disabled = true;
+        log('开始写入 0x3C228，共 ' + toWrite.length + ' 字节，约 ' + totalChunks + ' 包（每包 ' + CHUNK_PAYLOAD + ' 字节数据）…');
+
+        let writer;
+        let drain;
+        try {
+          if (!port.writable || !port.readable) {
+            log('串口未就绪，请重新连接。', true);
+            return;
+          }
+          writer = port.writable.getWriter();
+          drain = startDrainReader(port);
+
+          log('发送 0x0514 建立会话…');
+          await cmd0514(writer);
+          await delay(200);
+
+          let addr = SSB_EEPROM_ADDR;
+          let chunkIndex = 0;
+          for (let i = 0; i < toWrite.length; i += CHUNK_PAYLOAD) {
+            const chunk = toWrite.subarray(i, Math.min(i + CHUNK_PAYLOAD, toWrite.length));
+            await cmd0538Chunk(writer, addr, chunk);
+            addr += chunk.length;
+            chunkIndex++;
+            const written = Math.min(i + CHUNK_PAYLOAD, toWrite.length);
+            /* 每包或每 10 包打一次进度，最后必打 */
+            if (chunkIndex === totalChunks || chunkIndex % 10 === 0 || chunkIndex === 1) {
+              log('进度: ' + written + ' / ' + toWrite.length + ' 字节（包 ' + chunkIndex + ' / ' + totalChunks + '）');
+            }
+            await delay(120);
+          }
+
+          await delay(250);
+          try { writer.releaseLock(); } catch (e) { /* ignore */ }
+          writer = null;
+          await drain.cancel();
+          await drain.promise.catch(function () {});
+
+          log('写入完成。', false);
+          log('请重启对讲机后再试 SSB：F+0 进 Radio，FM/AM 下长按 F 进单边带；单边带下短按 F 切换 USB/LSB/CW，长按 F 退回 AM。', false);
+        } catch (e) {
+          log('写入失败: ' + e.message, true);
+          try {
+            if (writer) {
+              try { writer.releaseLock(); } catch (e2) {}
+            }
+            if (drain) await drain.cancel();
+            if (drain) await drain.promise.catch(function () {});
+          } catch (e3) {}
+        }
+        btnWrite.disabled = false;
+      }
+
+      fileEl.addEventListener('change', function () {
+        const f = this.files[0];
+        if (!f) { patchBytes = null; btnWrite.disabled = true; return; }
+        const r = new FileReader();
+        r.onload = function () {
+          patchBytes = new Uint8Array(r.result);
+          log('已选择: ' + f.name + '，长度 ' + patchBytes.length + ' 字节。');
+          btnWrite.disabled = !port;
+        };
+        r.readAsArrayBuffer(f);
+      });
+
+      btnConnect.addEventListener('click', connect);
+      btnWrite.addEventListener('click', writePatch);
+    })();
+  </script>
+</body>
+</html>

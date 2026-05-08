@@ -19,13 +19,14 @@
 
 #ifdef ENABLE_FMRADIO
 
+#include <stdbool.h>
 #include "driver/keyboard.h"
 
-#define FM_CHANNEL_UP   0x01
-#define FM_CHANNEL_DOWN 0xFF
+#define FM_CHANNEL_UP	0x01
+#define FM_CHANNEL_DOWN	0xFF
 
 enum {
-    FM_SCAN_OFF = 0U,
+	FM_SCAN_OFF = 0U,
 };
 
 extern uint16_t          gFM_Channels[20];
@@ -55,6 +56,17 @@ void    FM_ProcessKeys(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld);
 
 void    FM_Play(void);
 void    FM_Start(void);
+
+#if defined(ENABLE_FMRADIO) && defined(ENABLE_FM_SI4732)
+uint16_t FM_GetAM_StepKHz(void);
+bool     FM_IsAMMode(void);
+void     FM_LoadAMFrequencyFromEeprom(void);
+uint8_t  FM_GetAM_OptionFocus(void); /* 0=AGC 1=ATT 2=BW 3=STP */
+bool     FM_GetAM_AGC_On(void);
+uint8_t  FM_GetAM_ATT_Index(void);
+uint8_t  FM_GetAM_BW_Index(void);
+uint8_t  FM_GetAM_StepIndex(void);
+#endif
 
 #endif
 

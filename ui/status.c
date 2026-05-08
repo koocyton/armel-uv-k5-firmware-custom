@@ -18,7 +18,7 @@
 
 #include "app/chFrScanner.h"
 #ifdef ENABLE_FMRADIO
-    #include "app/fm.h"
+	#include "app/fm.h"
 #endif
 #include "app/scanner.h"
 #include "bitmaps.h"
@@ -34,260 +34,163 @@
 #include "ui/ui.h"
 #include "ui/status.h"
 
-#ifdef ENABLE_FEAT_F4HWN_RX_TX_TIMER
-#ifndef ENABLE_FEAT_F4HWN_DEBUG
-static void convertTime(uint8_t *line, uint8_t type) 
-{
-    uint16_t t = (type == 0) ? (gTxTimerCountdown_500ms / 2) : (3600 - gRxTimerCountdown_500ms / 2);
-
-    uint8_t m = t / 60;
-    uint8_t s = t - (m * 60); // Replace modulo with subtraction for efficiency
-
-    gStatusLine[0] = gStatusLine[7] = gStatusLine[14] = 0x00; // Quick fix on display (on scanning I, II, etc.)
-
-    char str[6];
-    sprintf(str, "%02u:%02u", m, s);
-    UI_PrintStringSmallBufferNormal(str, line);
-
-    gUpdateStatus = true;
-}
-#endif
-#endif
-
 void UI_DisplayStatus()
 {
-    char str[8] = "";
+	gUpdateStatus = false;
+	memset(gStatusLine, 0, sizeof(gStatusLine));
 
-    gUpdateStatus = false;
-    memset(gStatusLine, 0, sizeof(gStatusLine));
+	uint8_t     *line = gStatusLine;
+	unsigned int x    = 0;
+	// **************
 
-    uint8_t     *line = gStatusLine;
-    unsigned int x    = 0;
+	// POWER-SAVE indicator
+	if (gCurrentFunction == FUNCTION_TRANSMIT) {
+		memcpy(line + x, BITMAP_TX, sizeof(BITMAP_TX));
+	}
+	else if (FUNCTION_IsRx()) {
+		memcpy(line + x, BITMAP_RX, sizeof(BITMAP_RX));
+	}
+	else if (gCurrentFunction == FUNCTION_POWER_SAVE) {
+		memcpy(line + x, BITMAP_POWERSAVE, sizeof(BITMAP_POWERSAVE));
+	}
+	x += 8;
+	unsigned int x1 = x;
 
 #ifdef ENABLE_NOAA
-    // NOAA indicator
-    if (!(gScanStateDir != SCAN_OFF || SCANNER_IsScanning()) && gIsNoaaMode) { // NOASS SCAN indicator
-        memcpy(line + x, BITMAP_NOAA, sizeof(BITMAP_NOAA));
-    }
-    // Power Save indicator
-    else if (gCurrentFunction == FUNCTION_POWER_SAVE) {
-        memcpy(line + x, gFontPowerSave, sizeof(gFontPowerSave));
-    }
-    x += 8;
-#else
-    // Power Save indicator
-    if (gCurrentFunction == FUNCTION_POWER_SAVE) {
-        memcpy(line + x, gFontPowerSave, sizeof(gFontPowerSave));
-    }
-    x += 8;
+	if (gIsNoaaMode) { // NOASS SCAN indicator
+		memcpy(line + x, BITMAP_NOAA, sizeof(BITMAP_NOAA));
+		x1 = x + sizeof(BITMAP_NOAA);
+	}
+	x += sizeof(BITMAP_NOAA);
 #endif
-
-    unsigned int x1 = x;
 
 #ifdef ENABLE_DTMF_CALLING
-    if (gSetting_KILLED) {
-        memset(line + x, 0xFF, 10);
-        x1 = x + 10;
-    }
-    else
+	if (gSetting_KILLED) {
+		memset(line + x, 0xFF, 10);
+		x1 = x + 10;
+	}
+	else
 #endif
-    { // SCAN indicator
-        if (gScanStateDir != SCAN_OFF || SCANNER_IsScanning()) {
-            if (IS_MR_CHANNEL(gNextMrChannel) && !SCANNER_IsScanning()) { // channel mode
-                switch(gEeprom.SCAN_LIST_DEFAULT) {
-                    case 0:
-                        memcpy(line + 0, BITMAP_ScanList0, sizeof(BITMAP_ScanList0));
-                        break;
-                    case 1: 
-                        memcpy(line + 0, BITMAP_ScanList1, sizeof(BITMAP_ScanList1));
-                        break;
-                    case 2:
-                        memcpy(line + 0, BITMAP_ScanList2, sizeof(BITMAP_ScanList2));
-                        break;
-                    case 3:
-                        memcpy(line + 0, BITMAP_ScanList3, sizeof(BITMAP_ScanList3));
-                        break;
-                    case 4:
-                        memcpy(line + 0, BITMAP_ScanList123, sizeof(BITMAP_ScanList123));
-                        break;
-                    case 5:
-                        memcpy(line + 0, BITMAP_ScanListAll, sizeof(BITMAP_ScanListAll));
-                        break;
-                }
-            }
-            else {  // frequency mode
-                memcpy(line + x + 1, gFontS, sizeof(gFontS));
-                //UI_PrintStringSmallBufferNormal("S", line + x + 1);
-            }
-            x1 = x + 10;
-        }
-    }
-    x += 10;  // font character width
+#ifdef ENABLE_FMRADIO
+	if (gFmRadioMode) { // FM/AM indicator
+#ifdef ENABLE_FM_SI4732
+		if (FM_IsAMMode()) {
+			memcpy(line + x, BITMAP_AM, sizeof(BITMAP_AM));
+			x1 = x + sizeof(BITMAP_AM);
+		} else
+#endif
+		{
+			memcpy(line + x, BITMAP_FM, sizeof(BITMAP_FM));
+			x1 = x + sizeof(BITMAP_FM);
+		}
+	}
+	else
+#endif
+	{ // SCAN indicator
+		if (gScanStateDir != SCAN_OFF || SCANNER_IsScanning()) {
+			char * s = "";
+			if (IS_MR_CHANNEL(gNextMrChannel) && !SCANNER_IsScanning()) { // channel mode
+				switch(gEeprom.SCAN_LIST_DEFAULT) {
+					case 0: s = "1"; break;
+					case 1: s = "2"; break;
+					case 2: s = "*"; break;
+				}
+			}
+			else {	// frequency mode
+				s = "S";
+			}
+			UI_PrintStringSmallBufferNormal(s, line + x + 1);
+			x1 = x + 10;
+		}
+	}
+	x += 10;  // font character width
 
-    #ifdef ENABLE_FEAT_F4HWN_DEBUG
-        // Only for debug
-        // Only for debug
-        // Only for debug
+#ifdef ENABLE_VOICE
+	// VOICE indicator
+	if (gEeprom.VOICE_PROMPT != VOICE_PROMPT_OFF){
+		memcpy(line + x, BITMAP_VoicePrompt, sizeof(BITMAP_VoicePrompt));
+		x1 = x + sizeof(BITMAP_VoicePrompt);
+	}
+	x += sizeof(BITMAP_VoicePrompt);
+#endif
 
-        sprintf(str, "%d", gDebug);
-        UI_PrintStringSmallBufferNormal(str, line + x + 1);
-        x += 16;
-    #else
-        #ifdef ENABLE_VOICE
-        // VOICE indicator
-        if (gEeprom.VOICE_PROMPT != VOICE_PROMPT_OFF){
-            memcpy(line + x, BITMAP_VoicePrompt, sizeof(BITMAP_VoicePrompt));
-            x1 = x + sizeof(BITMAP_VoicePrompt);
-        }
-        x += sizeof(BITMAP_VoicePrompt);
-        #endif
-
-        if(!SCANNER_IsScanning()) {
-        #ifdef ENABLE_FEAT_F4HWN_RX_TX_TIMER
-            if(gCurrentFunction == FUNCTION_TRANSMIT && gSetting_set_tmr == true)
-            {
-                convertTime(line, 0);
-            }
-            else if(FUNCTION_IsRx() && gSetting_set_tmr == true)
-            {
-                convertTime(line, 1);
-            }
-            else
-        #endif
-            {
-                #ifdef ENABLE_FEAT_F4HWN_RESCUE_OPS
-                if(gEeprom.MENU_LOCK == true) {
-                    memcpy(line + x + 2, gFontRO, sizeof(gFontRO));
-                }
-                else
-                {
-                #endif
-                    uint8_t dw = (gEeprom.DUAL_WATCH != DUAL_WATCH_OFF) + (gEeprom.CROSS_BAND_RX_TX != CROSS_BAND_OFF) * 2;
-                    if(dw == 1 || dw == 3) { // DWR - dual watch + respond
-                        if(gDualWatchActive)
-                            memcpy(line + x + (dw==1?0:2), gFontDWR, sizeof(gFontDWR) - (dw==1?0:5));
-                        else
-                            memcpy(line + x + 3, gFontHold, sizeof(gFontHold));
-                    }
-                    else if(dw == 2) { // XB - crossband
-                        memcpy(line + x + 2, gFontXB, sizeof(gFontXB));
-                    }
-                    else
-                    {
-                        memcpy(line + x + 2, gFontMO, sizeof(gFontMO));
-                    }
-                #ifdef ENABLE_FEAT_F4HWN_RESCUE_OPS
-                }
-                #endif
-            }
-        }
-        x += sizeof(gFontDWR) + 3;
-    #endif
+	if(!SCANNER_IsScanning()) {
+		uint8_t dw = (gEeprom.DUAL_WATCH != DUAL_WATCH_OFF) + (gEeprom.CROSS_BAND_RX_TX != CROSS_BAND_OFF) * 2;
+		if(dw == 1 || dw == 3) { // DWR - dual watch + respond
+			if(gDualWatchActive)
+				memcpy(line + x + (dw==1?0:2), BITMAP_TDR1, sizeof(BITMAP_TDR1) - (dw==1?0:5));
+			else
+				memcpy(line + x + 3, BITMAP_TDR2, sizeof(BITMAP_TDR2));
+		}
+		else if(dw == 2) { // XB - crossband
+			memcpy(line + x + 2, BITMAP_XB, sizeof(BITMAP_XB));
+		}
+	}
+	x += sizeof(BITMAP_TDR1) + 1;
 
 #ifdef ENABLE_VOX
-    // VOX indicator
-    if (gEeprom.VOX_SWITCH) {
-        memcpy(line + x, gFontVox, sizeof(gFontVox));
-        x1 = x + sizeof(gFontVox) + 1;
-    }
-    x += sizeof(gFontVox) + 3;
+	// VOX indicator
+	if (gEeprom.VOX_SWITCH) {
+		memcpy(line + x, BITMAP_VOX, sizeof(BITMAP_VOX));
+		x1 = x + sizeof(BITMAP_VOX) + 1;
+	}
+	x += sizeof(BITMAP_VOX) + 1;
 #endif
 
-#ifdef ENABLE_FEAT_F4HWN
-    // PTT indicator
-    if (gSetting_set_ptt_session) {
-        memcpy(line + x, gFontPttOnePush, sizeof(gFontPttOnePush));
-        x1 = x + sizeof(gFontPttOnePush) + 1;
-    }
-    else
-    {
-        memcpy(line + x, gFontPttClassic, sizeof(gFontPttClassic));
-        x1 = x + sizeof(gFontPttClassic) + 1;       
-    }
-    x += sizeof(gFontPttClassic) + 3;
-#endif
+	x = MAX(x1, 61u);
 
-    x = MAX(x1, 69u);
+	// KEY-LOCK indicator
+	if (gEeprom.KEY_LOCK) {
+		memcpy(line + x, BITMAP_KeyLock, sizeof(BITMAP_KeyLock));
+		x += sizeof(BITMAP_KeyLock);
+		x1 = x;
+	}
+	else if (gWasFKeyPressed) {
+		memcpy(line + x, BITMAP_F_Key, sizeof(BITMAP_F_Key));
+		x += sizeof(BITMAP_F_Key);
+		x1 = x;
+	}
 
-    const void *src = NULL;   // Pointer to the font/bitmap to copy
-    size_t size = 0;          // Size of the font/bitmap
+	{	// battery voltage or percentage
+		char         s[8] = "";
+		unsigned int x2 = LCD_WIDTH - sizeof(BITMAP_BatteryLevel1) - 0;
 
-    // Determine the source and size based on conditions
-    if (gEeprom.KEY_LOCK) {
-        src = gFontKeyLock;
-        size = sizeof(gFontKeyLock);
-    }
-    else if (gWasFKeyPressed) {
-        #ifdef ENABLE_FEAT_F4HWN_RESCUE_OPS
-        if (!gEeprom.MENU_LOCK) {
-            src = gFontF;
-            size = sizeof(gFontF);
-        }
-        #else
-        src = gFontF;
-        size = sizeof(gFontF);
-        #endif
-    }
-    #ifdef ENABLE_FEAT_F4HWN
-        else if (gMute) {
-            src = gFontMute;
-            size = sizeof(gFontMute);
-        }
-    #endif
-    else if (gBackLight) {
-        src = gFontLight;
-        size = sizeof(gFontLight);
-    }
-    #ifdef ENABLE_FEAT_F4HWN_CHARGING_C
-    else if (gChargingWithTypeC) {
-        src = BITMAP_USB_C;
-        size = sizeof(BITMAP_USB_C);
-    }
-    #endif
+		if (gChargingWithTypeC)
+			x2 -= sizeof(BITMAP_USB_C);  // the radio is on charge
 
-    // Perform the memcpy if a source was selected
-    if (src) {
-        memcpy(line + x + 1, src, size);
-    }
+		switch (gSetting_battery_text) {
+			default:
+			case 0:
+				break;
 
-    // Battery
-    unsigned int x2 = LCD_WIDTH - sizeof(BITMAP_BatteryLevel1) - 0;
+			case 1:	{	// voltage
+				const uint16_t voltage = (gBatteryVoltageAverage <= 999) ? gBatteryVoltageAverage : 999; // limit to 9.99V
+				sprintf(s, "%u.%02uV", voltage / 100, voltage % 100);
+				break;
+			}
 
-    UI_DrawBattery(line + x2, gBatteryDisplayLevel, gLowBatteryBlink);
+			case 2:		// percentage
+				sprintf(s, "%u%%", BATTERY_VoltsToPercent(gBatteryVoltageAverage));
+				break;
+		}
 
-    bool BatTxt = true;
+		unsigned int space_needed = (7 * strlen(s));
+		if (x2 >= (x1 + space_needed))
+			UI_PrintStringSmallBufferNormal(s, line + x2 - space_needed);
+	}
 
-    switch (gSetting_battery_text) {
-        default:
-        case 0:
-            BatTxt = false;
-            break;
+	// move to right side of the screen
+	x = LCD_WIDTH - sizeof(BITMAP_BatteryLevel1) - sizeof(BITMAP_USB_C);
 
-        case 1:    // voltage
-            const uint16_t voltage = (gBatteryVoltageAverage <= 999) ? gBatteryVoltageAverage : 999; // limit to 9.99V
-            sprintf(str, "%u.%02u", voltage / 100, voltage % 100);
-            break;
+	// USB-C charge indicator
+	if (gChargingWithTypeC)
+		memcpy(line + x, BITMAP_USB_C, sizeof(BITMAP_USB_C));
+	x += sizeof(BITMAP_USB_C);
 
-        case 2:     // percentage
-            //gBatteryVoltageAverage = 999;
-            sprintf(str, "%02u%%", BATTERY_VoltsToPercent(gBatteryVoltageAverage));
-            break;
-    }
+	// BATTERY LEVEL indicator
+	UI_DrawBattery(line + x, gBatteryDisplayLevel, gLowBatteryBlink);
 
-    if (BatTxt) {
-        x2 -= (7 * strlen(str));
-        UI_PrintStringSmallBufferNormal(str, line + x2);
-        /*
-        uint8_t shift = (strlen(str) < 5) ? 92 : 88;
-        GUI_DisplaySmallest(str, shift, 1, true, true);
+	// **************
 
-        for (uint8_t i = shift - 2; i < 110; i++) {
-            gStatusLine[i] ^= 0x7F; // invert
-        }
-        */
-    }
-
-    // **************
-
-    ST7565_BlitStatusLine();
+	ST7565_BlitStatusLine();
 }

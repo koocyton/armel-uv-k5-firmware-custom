@@ -1,39 +1,21 @@
-# Stats
-
-![Alt](https://repobeats.axiom.co/api/embed/947813147857755cef60a960d13734044b3b2c22.svg "Repobeats analytics image")
-
 # Open re-implementation of the Quansheng UV-K5/K6/5R v2.1.27 firmware
 
-This repository is a fork of [Egzumer custom firmware](https://github.com/egzumer/uv-k5-firmware-custom), who was a merge of [OneOfEleven custom firmware](https://github.com/OneOfEleven/uv-k5-firmware-custom) with [fagci spectrum analizer](https://github.com/fagci/uv-k5-firmware-fagci-mod/tree/refactor) plus my few changes.
-
+This repository is a merge of [OneOfEleven custom firmware](https://github.com/OneOfEleven/uv-k5-firmware-custom) with [fagci spectrum analizer](https://github.com/fagci/uv-k5-firmware-fagci-mod/tree/refactor) plus my few changes.<br>
 All is a cloned and customized version of DualTachyon's open firmware found [here](https://github.com/DualTachyon/uv-k5-firmware) ... a cool achievement !
 
-> [!NOTE]
-> EN - About Chirp, as many others firmwares, you need to use a dedicated driver available on [this repository](https://github.com/armel/uv-k5-chirp-driver). 
->
-> _FR - A propos de Chirp, comme beaucoup d'autres firmwares, vous devez utiliser un pilote dédié disponible sur [ce dépôt](https://github.com/armel/uv-k5-chirp-driver)._
+> [!TIP]
+> There is a work done by others on forks of this repository. I encourage you to take a look at those too. [SEE HERE](https://github.com/egzumer/uv-k5-firmware-custom/discussions/485)
 
-> [!WARNING]
-> EN - THIS FIRMWARE HAS NO REAL BRAIN. PLEASE USE YOUR OWN. Use this firmware at your own risk (entirely). There is absolutely no guarantee that it will work in any way shape or form on your radio(s), it may even brick your radio(s), in which case, you'd need to buy another radio.
+> [!WARNING]  
+> Use this firmware at your own risk (entirely). There is absolutely no guarantee that it will work in any way shape or form on your radio(s), it may even brick your radio(s), in which case, you'd need to buy another radio.
 Anyway, have fun.
->
-> _FR - CE FIRMWARE N'A PAS DE VÉRITABLE CERVEAU. VEUILLEZ UTILISER LE VÔTRE. Utilisez ce firmware à vos risques et périls. Il n'y a absolument aucune garantie qu'il fonctionnera d'une manière ou d'une autre sur votre (vos) radio(s), il peut même bousiller votre (vos) radio(s), dans ce cas, vous devrez acheter une autre radio. Quoi qu'il en soit, amusez-vous bien._
-
-> [!CAUTION]
-> EN - I recommend to backup your eeprom with [k5prog](https://github.com/sq5bpf/k5prog) before playing with alternative firmwares. It's a good reflex to have. 
->
-> _FR - Je recommande de sauvegarder votre eeprom avec [k5prog](https://github.com/sq5bpf/k5prog) avant de jouer avec des firmwares alternatifs. C'est un bon réflexe à avoir._
-
-# Donations
-
-Special thanks to Jean-Cyrille F6IWW (2 times), Fabrice 14RC123, David F4BPP, Olivier 14RC206, Frédéric F4ESO, Stéphane F5LGW, Jorge Ornelas (4 times), Laurent F4AXK, Christophe Morel, Clayton W0LED, Pierre Antoine F6FWB, Jean-Claude 14FRS3306, Thierry F4GVO, Eric F1NOU, PricelessToolkit, Ady M6NYJ, Tom McGovern (4 times), Joseph Roth, Pierre-Yves Colin, Frank DJ7FG, Marcel Testaz, Brian Frobisher, Yannick F4JFO, Paolo Bussola, Dirk DL8DF, Levente Szőke (2 times), Bernard-Michel Herrera, Jérôme Saintespes, Paul Davies, RS (3 times), Johan F4WAT, Robert Wörle, Rafael Sundorf, Paul Harker, Peter Fintl, Pascal F4ICR (2 times), Mike DL2MF, Eric KI1C (2 times), Phil G0ELM, Jérôme Lambert, Meinhard Frank Günther, Eliot Vedel, Alfonso EA7KDF, Jean-François F1EVM, Robert DC1RDB, Ian KE2CHJ, Daryl VK3AWA, Roberto Brunelli, Robert Boardman, Stephen Oliver, Nicolas F4INE and William Bruno for their [donations](https://www.paypal.com/paypalme/F4HWN). That’s so kind of them. Thanks so much 🙏🏻
 
 ## Table of Contents
 
-* [My Features](#main-features)
-* [Main Features from Egzumer](#main-features-from-egzumer)
+* [Main Features](#main-features)
 * [Manual](#manual)
 * [Radio Performance](#radio-performance)
+* [User Customization](#user-customization)
 * [Compiler](#compiler)
 * [Building](#building)
 * [Credits](#credits)
@@ -41,122 +23,7 @@ Special thanks to Jean-Cyrille F6IWW (2 times), Fabrice 14RC123, David F4BPP, Ol
 * [License](#license)
 * [Example changes/updates](#example-changesupdates)
 
-## Main features and improvements from F4HWN:
-
-* several firmware versions:
-    * Bandscope (with spectrum analyzer made by Fagci),
-    * Broadcast (with commercial FM radio support),
-    * Basic (with spectrum analyzer and commercial FM radios support, but without certain functions such as Vox, Aircopy, etc.),
-    * RescueOps (specifically designed for first responders: firefighters, sea rescue, mountain rescue),
-    * Game (with a small breakout game),
-* improve default power settings level: 
-    * Low1 to Low5 (<~20mW, ~125mW, ~250mW, ~500mW, ~1W), 
-    * Mid ~2W, 
-    * High ~5W,
-    * User (see SetPwr),
-* improve S-Meter (IARU Region 1 Technical Recommendation R.1 for VHF/UHF - [read more](https://hamwaves.com/decibel/en/)),
-   * S-Meter (S0/S9) Level EEPROM settings that were introduced in the Egzumer firmware are now ignored and replaced by hardcoded values to comply with the IARU Recommendation.     
-* improve bandscope (Spectrum Analyser):
-    * add channel name,
-    * add save of some spectrum parameters,
-* improve UI: 
-    * menu index is always visible, even if a menu is selected,
-    * s-meter new design (Classic or Tiny), 
-    * MAIN ONLY screen mode, 
-    * DUAL and CROSS screen mode, 
-    * RX blink on VFO RX, 
-    * RX LED blink, 
-    * Squelch level and Monitor,
-    * Step value,
-    * CTCSS or DCS value,
-    * KeyLock message,
-    * last RX,
-    * move BatTxt menu from 34/63 to 30/63 (just after BatSave menu 29/63),
-    * rename BackLt to BLTime,
-    * rename BltTRX to BLTxRx,
-    * improve memory channel input,
-    * improve keyboard frequency input,
-    * add percent and gauge to Air Copy,
-    * improve audio bar,
-    * and more...
-* new menu entries and changes:
-    * add SetPwr menu to set User power (<20mW, 125mW, 250mW, 500mW, 1W, 2W or 5W),
-    * add SetPTT menu to set PTT mode (Classic or OnePush),
-    * add SetTOT menu to set TOT alert (Off, Sound, Visual, All),
-    * add SetCtr menu to set contrast (0 to 15),
-    * add SetInv menu to set screen in invert mode (Off or On),
-    * add SetEOT menu to set EOT (End Of Transmission) alert (Off, Sound, Visual, All),
-    * add SetMet menu to set s-meter style (Classic or Tiny),
-    * add SetLck menu to set what is locked (Keys or Keys + PTT),
-    * add SetGUI menu to set font size on the VFO baseline (Classic or Tiny),
-    * add TXLock menu to open TX on channel,
-    * add SetTmr menu to set RX and TX timers (Off or On),
-    * add SetOff menu to set the delay before the transceiver goes into deep sleep (Off or 1 minute to 2 hours),
-    * add SetNFM menu to set Narrow width (12.5kHz or 6.25kHz),
-    * rename BatVol menu (52/63) to SysInf, which displays the firmware version in addition to the battery status,
-    * improve PonMsg menu,
-    * improve BackLt menu,
-    * improve TxTOut menu,
-    * improve ScnRev menu (CARRIER from 250ms to 20s, STOP, TIMEOUT from 5s to 2m)
-    * improve KeyLck menu (OFF, delay from 15s to 10m)
-    * add HAM CA F Lock band (for Canadian zone),
-    * add PMR 446 F Lock band,
-    * add FRS/GMRS/MURS F Lock band,
-    * remove blink and SOS functionality, 
-    * remove AM Fix menu (AM Fix is ENABLED by default),
-    * add support of 3500mAh battery,
-* improve status bar:
-    * add SetPtt mode in status bar,
-    * change font and bitmaps,
-    * move USB icon to left of battery information,
-    * add RX and TX timers,
-* improve lists and scan lists options:
-    * add new list 3,
-    * add new list 0 (channel without list...),
-    * add new scan lists options,
-        * scan list 0 (all channels without list),
-        * scan list 1,
-        * scan list 2,
-        * scan list 3,
-        * scan lists [1, 2, 3],
-        * scan all (all channels with or without list),
-    * add scan list shortcuts,
-* add resume mode on startup (scan, bandscope and broadcast FM),
-* new actions:
-    * RX MODE,
-    * MAIN ONLY,
-    * PTT, 
-    * WIDE NARROW,
-    * 1750Hz,
-    * MUTE,
-    * POWER HIGH (RescueOps),
-    * REMOVE OFFSET (RescueOps),
-* new key combinations:
-    * add the F + UP or F + DOWN key combination to dynamically change the Squelch level,
-    * add the F + F1 or F + F2 key combination to dynamically change the Step,
-    * add F + 8 to quickly switch backlight between BLMin and BLMax on demand (this bypass BackLt strategy),
-    * add F + 9 to return to BackLt strategy,
-    * add long press on MENU, in * SCAN mode, to temporarily exclude a memory channel,
-    * add short press on [0, 1, 2, 3, 4 or 5], in * SCAN mode, to dynamically change scan list.
-* many fix:
-    * squelch, 
-    * s-meter,
-    * DTMF overlaying, 
-    * scan list 2 ignored, 
-    * scan range limit,
-    * clean display on startup,
-    * no more PWM noise,
-    * and more...
-* enabled AIR COPY
-* disabled ENABLE_DTMF_CALLING,
-* disabled SCRAMBLER,
-* remove 200Tx, 350Tx and 500Tx,
-* unlock TX on all bands needs only to be repeat 3 times,
-* code refactoring and many memory optimization,
-* displays the live screen of the Quansheng K5 on your computer via a USB-to-Serial cable,
-* and more...
-
-## Main features from Egzumer:
+## Main features:
 * many of OneOfEleven mods:
    * AM fix, huge improvement in reception quality
    * long press buttons functions replicating F+ action
@@ -189,7 +56,7 @@ Special thanks to Jean-Cyrille F6IWW (2 times), Fabrice 14RC123, David F4BPP, Ol
 
  ## Manual
 
-Up to date manual is available in the [Wiki section](https://github.com/armel/uv-k5-firmware-custom/wiki)
+Up to date manual is available in the [Wiki section](https://github.com/egzumer/uv-k5-firmware-custom/wiki)
 
 ## Radio performance
 
@@ -207,6 +74,145 @@ On the other hand, FM RX audio will/should be fine.
 
 But, they are nice toys for the price, fun to play with.
 
+## SI4732 SSB (LSB / USB / CW)
+
+When **ENABLE_FMRADIO** and **ENABLE_FM_SI4732** are enabled, you can switch AM band modulation with the **3** key: AM → LSB → USB → CW → AM. For **LSB/USB/CW to actually decode** (not just show on screen), the Si4732 needs a **firmware patch** loaded from EEPROM.
+
+**You need to do one of the following:**
+
+1. **256 KB (2 Mbit) EEPROM**  
+   The patch is read from EEPROM at address **0x3C228**, length **15832** bytes. The original K5 often has 8 KB EEPROM, so that region does not exist unless the radio has been upgraded to a larger EEPROM (e.g. 256 KB).
+
+2. **Write the SSB patch into EEPROM**  
+   The firmware does **not** contain or write the patch; it only **reads** it from the address above. You must put the patch there using an external method, for example:
+   - Use the **reference firmware’s “写频” / K5Web** flow (e.g. [K5Web](https://k5.vicicode.com/)) if it supports writing the SI4732 patch.
+   - Use the **PU2CLR SI4735** Arduino tool **SI47XX_09_SAVE_SSB_PATCH_EEPROM** to save the patch to a file, then write that file to EEPROM at offset **0x3C228** with a programmer or custom tool.
+   - Restore an EEPROM backup from a device that already has the patch (e.g. one that ran the “HS” build of the reference firmware with the patch written).
+
+If the patch is missing or the EEPROM is too small, the UI will still switch to LSB/USB/CW, but the receiver will not demodulate SSB correctly.
+
+## 单边带（SSB）补丁怎么写入
+
+要让 LSB/USB/CW 真正能解调，必须把 **Si4732 SSB 补丁**（约 15.8KB）写到 EEPROM 的 **0x3C228** 位置。机器需已换 **2Mbit (256KB) EEPROM**，否则没有这片区域。
+
+**推荐方式（任选其一）：**
+
+### 方式一：K5Web 写频（最简单）
+
+1. 刷好本固件，并确保 **ENABLE_UART=1** 能编译通过、电脑能连上对讲机（见上文「电脑连接」）。
+2. 打开浏览器访问 **[K5Web](https://k5.vicicode.com/)**，注册/登录。
+3. 在网站里找到 **SI4732 SSB 补丁** 或 **写频 / 固件升级** 相关入口（参考 uv-k5-firmware-custom 的「写频方式」说明）。
+4. 按页面提示：连接对讲机、选择 2Mbit、上传或写入补丁。补丁会被写到 EEPROM 0x3C228，长度 15832 字节。
+
+### 方式二：从已有补丁的机器备份 EEPROM
+
+1. 找一台**已经写过 SSB 补丁**的 K5（例如刷过 uv-k5-firmware-custom 的 **LOSEHUxxxHS** 并用 K5Web 写过补丁）。
+2. 用支持 2Mbit 的 CPS 或工具，**完整读出该机的 EEPROM**，保存为文件。
+3. 在你的机器上（也需 2Mbit EEPROM + 本固件），用同一工具把该 EEPROM 文件**写回**，或只截取 **0x3C228 起 15832 字节** 写入你机 EEPROM 的 0x3C228。
+
+### 方式三：Arduino 导出补丁 + 自己写 EEPROM
+
+1. 用 **PU2CLR 的 [SI4735 库](https://github.com/pu2clr/SI4735)**，打开示例 **SI47XX_09_SAVE_SSB_PATCH_EEPROM**，在 Arduino + Si4732 板子上运行，把补丁**保存到文件**（或先读到 PC）。
+2. 得到约 **15832 字节** 的补丁 bin 文件。
+3. 用能按**地址**写 EEPROM 的工具（例如支持 2Mbit 的 K5 写频软件、或通用 EEPROM 编程器），把该文件**写入对讲机 EEPROM 的起始偏移 0x3C228**（即地址 246312）。
+
+**校验：** 写入后重启对讲机，进 AM 波段按 **3** 切到 LSB/USB，若声音解调正常，说明补丁已生效。
+
+### AM/单边带使用 FMI 天线（实验性）
+
+Si4732 有两个天线输入：**AMI**（AM/LW）、**FMI**（FM/SW）。官方仅文档化了 **PROP_FM_ANTENNA_INPUT (0x1107)** 用于 FM 时选择 FMI/AMI，**未明确** AM/SSB 是否可由软件切到 FMI。若你希望 AM 或单边带从 **FMI** 取信号（例如 FMI 接了更好的短波天线），可编译时打开实验选项：
+
+- **Makefile** 中设 **`ENABLE_SI4732_AM_USE_FMI=1`**，重新编译、烧录。
+- 固件会在进入 AM 和 SSB 时设置 `PROP_FM_ANTENNA_INPUT = 0`（通常对应 FMI）。若无效或更差，可改 `si473x.c` 里该值为 `1` 再试，或关闭本选项。
+
+**注意：** 若芯片内部 AM/SW 只接 AMI，此选项可能无效果；若有效，则 AM/SSB 会从 FMI 取信号。
+
+## 2Mbit (256KB) EEPROM 识别
+
+若你已把机器换成 **2Mbit EEPROM**，希望电脑 CPS 显示为 2Mbit 而不是 64Kbit：
+
+1. **Makefile 里打开 2Mbit 上报**  
+   **`ENABLE_2MBIT_EEPROM`** 设为 **`1`**（默认已是 1）。固件会：
+   - 版本字符串以 **"HS"** 结尾（与 LOSEHUxxxHS 一致），
+   - 在 0x0515 版本回复的 **Padding** 里填 256KB 提示，供部分 CPS 识别。
+
+2. **固件已支持 32 位 EEPROM 读写**  
+   串口命令 **0x052B**（32 位读）、**0x0538**（32 位写），可访问整片 256KB。
+
+3. **仍显示 64Kbit 时**  
+   - 确认刷入的固件是 **ENABLE_2MBIT_EEPROM=1** 编译的，且 CPS 已重新连接对讲机（重新读版本）。
+   - 换用**明确支持 2Mbit 的写频软件**：如 [K5Web](https://k5.vicicode.com/) 或 uv-k5-firmware-custom 的 LOSEHUxxxHS 配套 CPS。不同软件识别方式不同（有的看版本后缀 "H"/"HS"，有的看协议里的其他字段）。
+   - 若必须用某款只认“特定版本号”的 CPS，可在 **`version.c`** 里把 `Version` 改成该 CPS 认识的 2Mbit 固件版本串（例如某 LOSEHUxxxHS 的完整版本字符串），再重新编译、刷机。
+
+## 电脑连接（写频 / CPS）
+
+若刷入本固件后**电脑连接失败**，而别的固件可以连接，是因为本仓库默认**关闭了 UART**（`ENABLE_UART=0`），以节省 Flash。  
+要恢复电脑连接，请：
+
+1. 打开 **Makefile**，把 **`ENABLE_UART`** 改为 **`1`**。
+2. 因当前固件（含 Si4732 等）已接近写满 Flash，开启 UART 后会超约 1.9KB，链接会报错。需要**同时关闭一项其它功能**再编译，例如：
+   - 把 **`ENABLE_SPECTRUM`** 改为 **`0`**（关闭频谱），或  
+   - 把 **`ENABLE_DTMF_CALLING`** 改为 **`0`**（关闭 DTMF 呼叫）。
+3. 保存后执行 **`make clean && make`**，刷入新生成的 `firmware.bin`。
+
+示例（需要电脑连接且保留频谱时，可关 DTMF）：`ENABLE_UART=1`，`ENABLE_DTMF_CALLING=0`。
+
+## User customization
+
+You can customize the firmware by enabling/disabling various compile options, this allows
+us to remove certain firmware features in order to make room in the flash for others.
+You'll find the options at the top of "Makefile" ('0' = disable, '1' = enable) ..
+
+
+|Build option | Description |
+| --- | ---- |
+|🧰 **STOCK QUANSHENG FEATURES**||
+| ENABLE_UART | 电脑写频/连接 (CPS、编程线)。关闭则电脑无法连接。**开启后固件会超 Flash**，需同时关闭一项其它功能（如 ENABLE_SPECTRUM 或 ENABLE_DTMF_CALLING）再编译。 |
+| ENABLE_AIRCOPY | easier to just enter frequency with butts |
+| ENABLE_FMRADIO | WBFM VHF broadcast band receiver |
+| ENABLE_NOAA | everything NOAA (only of any use in the USA) |
+| ENABLE_VOICE | want to hear voices ? |
+| ENABLE_VOX | |
+| ENABLE_ALARM | TX alarms |
+| ENABLE_TX1750 | side key 1750Hz TX tone (older style repeater access)|
+| ENABLE_PWRON_PASSWORD | power-on password stuff |
+| ENABLE_DTMF_CALLING | DTMF calling fuctionality, sending calls, receiving calls, group calls, contacts list etc. |
+| ENABLE_FLASHLIGHT | enable top flashlight LED (on, blink, SOS) |
+|🧰 **CUSTOM MODS**||
+| ENABLE_BIG_FREQ | big font frequencies (like original QS firmware) |
+| ENABLE_SMALL_BOLD | bold channel name/no. (when name + freq channel display mode) |
+| ENABLE_CUSTOM_MENU_LAYOUT | changes how the menu looks like |
+| ENABLE_KEEP_MEM_NAME | maintain channel name when (re)saving memory channel|
+| ENABLE_WIDE_RX | full 18MHz to 1300MHz RX (though front-end/PA not designed for full range)|
+| ENABLE_TX_WHEN_AM | allow TX (always FM) when RX is set to AM|
+| ENABLE_F_CAL_MENU | enable the radios hidden frequency calibration menu |
+| ENABLE_CTCSS_TAIL_PHASE_SHIFT | standard CTCSS tail phase shift rather than QS's own 55Hz tone method|
+| ENABLE_BOOT_BEEPS | gives user audio feedback on volume knob position at boot-up |
+| ENABLE_SHOW_CHARGE_LEVEL | show the charge level when the radio is on charge |
+| ENABLE_REVERSE_BAT_SYMBOL | mirror the battery symbol on the status bar (+ pole on the right) |
+| ENABLE_NO_CODE_SCAN_TIMEOUT | disable 32-sec CTCSS/DCS scan timeout (press exit butt instead of time-out to end scan) |
+| ENABLE_AM_FIX | dynamically adjust the front end gains when in AM mode to help prevent AM demodulator saturation, ignore the on-screen RSSI level (for now) |
+| ENABLE_AM_FIX_SHOW_DATA | show debug data for the AM fix |
+| ENABLE_SQUELCH_MORE_SENSITIVE | make squelch levels a little bit more sensitive - I plan to let user adjust the values themselves |
+| ENABLE_FASTER_CHANNEL_SCAN | increases the channel scan speed, but the squelch is also made more twitchy |
+| ENABLE_RSSI_BAR | enable a dBm/Sn RSSI bar graph level in place of the little antenna symbols |
+| ENABLE_AUDIO_BAR | experimental, display an audio bar level when TX'ing |
+| ENABLE_COPY_CHAN_TO_VFO | copy current channel settings into frequency mode. Long press `1 BAND` when in channel mode |
+| ENABLE_SPECTRUM | fagci spectrum analyzer, activated with `F` + `5 NOAA`|
+| ENABLE_REDUCE_LOW_MID_TX_POWER | makes medium and low power settings even lower |
+| ENABLE_BYP_RAW_DEMODULATORS | additional BYP (bypass?) and RAW demodulation options, proved not to be very useful, but it is there if you want to experiment |
+| ENABLE_BLMIN_TMP_OFF | additional function for configurable buttons that toggles `BLMin` on and off wihout saving it to the EEPROM |
+| ENABLE_SCAN_RANGES | scan range mode for frequency scanning, see wiki for instructions (radio operation -> frequency scanning) |
+|🧰 **DEBUGGING** ||
+| ENABLE_AM_FIX_SHOW_DATA| displays settings used by  AM-fix when AM transmission is received |
+| ENABLE_AGC_SHOW_DATA | displays AGC settings |
+| ENABLE_UART_RW_BK_REGS | adds 2 extra commands that allow to read and write BK4819 registers |
+|🧰 **COMPILER/LINKER OPTIONS**||
+| ENABLE_CLANG | **experimental, builds with clang instead of gcc (LTO will be disabled if you enable this) |
+| ENABLE_SWD | only needed if using CPU's SWD port (debugging/programming) |
+| ENABLE_OVERLAY | cpu FLASH stuff, not needed |
+| ENABLE_LTO | reduces size of compiled firmware but might break EEPROM reads (OVERLAY will be disabled if you enable this) |
+
 ## Compiler
 
 arm-none-eabi GCC version 10.3.1 is recommended, which is the current version on Ubuntu 22.04.03 LTS.
@@ -222,33 +228,25 @@ You can get it from: https://releases.llvm.org/download.html
 
 This is the least demanding option as you don't have to install enything on your computer. All you need is Github account.
 
-1. Go to https://github.com/armel/uv-k5-firmware-custom
+1. Go to https://github.com/egzumer/uv-k5-firmware-custom
 1. Click green `Code` button
 1. Change tab from `Local` to `Codespace`
 1. Click green `Create codespace on main` button
 
-<img src="images/Code_Space_1.png" width=700 />
+<img src="images/codespace1.png" width=700 />
 
-5. Open `Makefile`, edit build options and save changes
-1. If necessary, open `compile-with-docker.sh`, edit build versions and save changes
-1. Run in terminal window
-    - `./compile-with-docker.sh bandscope` to compile bandscope version
-    - `./compile-with-docker.sh broadcast` to compile broadcast version
-    - `./compile-with-docker.sh voxless` to compile voxless version
-    - `./compile-with-docker.sh all` to compile all versions 
-    - `./compile-with-docker.sh custom` to compile only with Makefile build options   
+5. Open `Makefile`
+1. Edit build options, save `Makefile` changes
+1. Run `./compile-with-docker.sh` in terminal window
 1. Open folder `compiled-firmware`
 1. Right click `firmware.packed.bin`
 1. Click `Download`, now you should have a firmware on your computer that you can proceed to flash on your radio. You can use [online flasher](https://egzumer.github.io/uvtools)
 
-<img src="images/Code_Space_2.png" width=700 />
+<img src="images/codespace2.png" width=700 />
 
 ### Docker build method
 
-If you have docker installed you can use [compile-with-docker.bat](./compile-with-docker.bat) (Windows) or [compile-with-docker.sh](./compile-with-docker.sh) (Linux/Mac), the output files are created in `compiled-firmware` folder. This method gives significantly smaller binaries, I've seen differences up to 1kb, so it can fit more functionalities this way. The challenge can be (or not) installing docker itself. 
-
-> [!TIP]
-> On Linux/Mac, you may need to uncomment and customize the DOCKER_NETWORK environment variable at the beginning of the [compile-with-docker.sh](./compile-with-docker.sh) script. Note: this can introduce security risks by removing network isolation. However, if you encounter issues and are using a specific network environment (with a proxy or a firewall), this may help.
+If you have docker installed you can use [compile-with-docker.bat](./compile-with-docker.bat) (Windows) or [compile-with-docker.sh](./compile-with-docker.sh) (Linux/Mac), the output files are created in `compiled-firmware` folder. This method gives significantly smaller binaries, I've seen differences up to 1kb, so it can fit more functionalities this way. The challenge can be (or not) installing docker itself.
 
 ### Windows environment build method
 
@@ -262,7 +260,7 @@ If you have docker installed you can use [compile-with-docker.bat](./compile-wit
     pip install --user --upgrade pip
     pip install crcmod
     mkdir c:\projects & cd /D c:/projects
-    git clone https://github.com/armel/uv-k5-firmware-custom.git
+    git clone https://github.com/egzumer/uv-k5-firmware-custom.git
     ```
 3. From now on you can build the firmware by going to `c:\projects\uv-k5-firmware-custom` and running `win_make.bat` or by running a command line:
     ```
@@ -279,9 +277,8 @@ I've left some notes in the win_make.bat file to maybe help with stuff.
 
 ## Credits
 
-Many thanks to various people:
+Many thanks to various people on Telegram for putting up with me during this effort and helping:
 
-* [Egzumer](https://github.com/egzumer)
 * [OneOfEleven](https://github.com/OneOfEleven)
 * [DualTachyon](https://github.com/DualTachyon)
 * [Mikhail](https://github.com/fagci)
@@ -320,23 +317,14 @@ You may obtain a copy of the License at
 
 ## Example changes/updates
 
-Here are a few photos.
+<p float="left">
+  <img src="/images/image1.png" width=300 />
+  <img src="/images/image2.png" width=300 />
+  <img src="/images/image3.png" width=300 />
+</p>
 
-|![Main Only and Dual RX Respond](https://github.com/armel/uv-k5-firmware-custom-feat-F4HWN/blob/main/photos/IMG_3291.png)|
-|:--:|
-| Main Only and Dual RX Respond |
+Video showing the AM fix working ..
 
+<video src="/images/AM_fix.mp4"></video>
 
-|![Main Only and Dual RX Respond (invert mode)](https://github.com/armel/uv-k5-firmware-custom-feat-F4HWN/blob/main/photos/IMG_3290.png)|
-|:--:|
-| Main Only and Dual RX Respond (invert mode) |
-
-
-|![Some new menu entries](https://github.com/armel/uv-k5-firmware-custom-feat-F4HWN/blob/main/photos/IMG_3292.png)|
-|:--:|
-| Some new menu entries |
-
-
-|![Main Only and Spectrum Analyzer](https://github.com/armel/uv-k5-firmware-custom-feat-F4HWN/blob/main/photos/IMG_3293.png)|
-|:--:|
-| Main Only and Spectrum Analyzer |
+<video src="https://github.com/OneOfEleven/uv-k5-firmware-custom/assets/51590168/2a3a9cdc-97da-4966-bf0d-1ce6ad09779c"></video>
