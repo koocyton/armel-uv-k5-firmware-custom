@@ -218,12 +218,15 @@ void FM_Tune(uint16_t Frequency, int8_t Step, bool bFlag)
 	gEeprom.FM_FrequencyPlaying = Frequency;
 
 	if (!bFlag) {
+#ifdef ENABLE_FM_SI4732
+		Frequency = FM_NextOn05MhzGrid(Frequency, Step);
+#else
 		Frequency += Step;
 		if (Frequency < BK1080_GetFreqLoLimit(gEeprom.FM_Band))
 			Frequency = BK1080_GetFreqHiLimit(gEeprom.FM_Band);
 		else if (Frequency > BK1080_GetFreqHiLimit(gEeprom.FM_Band))
 			Frequency = BK1080_GetFreqLoLimit(gEeprom.FM_Band);
-
+#endif
 		gEeprom.FM_FrequencyPlaying = Frequency;
 	}
 
@@ -314,6 +317,35 @@ static uint16_t FM_AM_ParseInputFreq(void)
 	if (v < 500) v = 500;
 	if (v > 30000) v = 30000;
 	return (uint16_t)v;
+}
+
+/* FM：存储为 10 kHz 整数（显示 MHz = 值/100）。手调按 0.05 MHz 网格：
+ * 未在网格上时：上调 → 向上取整到 0.05；下调 → 向下取整到 0.05。
+ * 已在网格上：上调 +0.05，下调 -0.05。（例：100.04 下→100.00→99.95；上→100.05→100.10） */
+static uint16_t FM_NextOn05MhzGrid(uint16_t cur, int8_t stepDir)
+{
+	const uint16_t lo = BK1080_GetFreqLoLimit(gEeprom.FM_Band);
+	const uint16_t hi = BK1080_GetFreqHiLimit(gEeprom.FM_Band);
+	int32_t n;
+
+	if (stepDir > 0) {
+		if ((cur % 5u) == 0u)
+			n = (int32_t)cur + 5;
+		else
+			n = (int32_t)((cur / 5u + 1u) * 5u);
+	} else {
+		if ((cur % 5u) == 0u)
+			n = (int32_t)cur - 5;
+		else
+			n = (int32_t)((cur / 5u) * 5u);
+	}
+
+	if (n < (int32_t)lo)
+		n = (int32_t)hi;
+	else if (n > (int32_t)hi)
+		n = (int32_t)lo;
+
+	return (uint16_t)n;
 }
 #endif
 
@@ -675,15 +707,28 @@ static void Key_UP_DOWN(uint8_t state, int8_t Step)
 		gEeprom.FM_FrequencyPlaying = gFM_Channels[Channel];
 	}
 	else {
+#ifdef ENABLE_FM_SI4732
+		/* FM：EEPROM 以 10 kHz 为单位，0.05 MHz/步 ⇒ ±5 */
+		{
+			int32_t f = (int32_t)gEeprom.FM_SelectedFrequency + (int32_t)Step * 5;
+			const uint16_t lo = BK1080_GetFreqLoLimit(gEeprom.FM_Band);
+			const uint16_t hi = BK1080_GetFreqHiLimit(gEeprom.FM_Band);
+			if (f < (int32_t)lo)
+				f = hi;
+			else if (f > (int32_t)hi)
+				f = lo;
+			gEeprom.FM_SelectedFrequency = (uint16_t)f;
+		}
+#else
 		uint16_t Frequency = gEeprom.FM_SelectedFrequency + Step;
 
 		if (Frequency < BK1080_GetFreqLoLimit(gEeprom.FM_Band))
 			Frequency = BK1080_GetFreqHiLimit(gEeprom.FM_Band);
 		else if (Frequency > BK1080_GetFreqHiLimit(gEeprom.FM_Band))
 			Frequency = BK1080_GetFreqLoLimit(gEeprom.FM_Band);
-
-		gEeprom.FM_FrequencyPlaying  = Frequency;
-		gEeprom.FM_SelectedFrequency = gEeprom.FM_FrequencyPlaying;
+		gEeprom.FM_SelectedFrequency = Frequency;
+#endif
+		gEeprom.FM_FrequencyPlaying  = gEeprom.FM_SelectedFrequency;
 	}
 
 	gRequestSaveFM = true;
