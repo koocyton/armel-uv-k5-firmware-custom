@@ -286,6 +286,8 @@ void SI47XX_SetFreq(uint16_t freq) {
   uint8_t lb = freq & 0xFF;
   uint8_t size = 4;
   uint8_t cmd[6] = {CMD_FM_TUNE_FREQ, 0x01, hb, lb, 0, 0};
+  /* AM_TUNE_FREQ ARG1（与 si473x.h / PU2CLR 一致）：bit0=FAST，bit6:7=USBLSB；SSB 须 FAST=1，否则高频易失锁、长时间无声 */
+  enum { AM_TUNE_ARG1_FAST_LSB = 0x41u, AM_TUNE_ARG1_FAST_USB = 0x81u };
 
   if (si4732mode == SI47XX_AM) {
     cmd[0] = CMD_AM_TUNE_FREQ;
@@ -295,16 +297,13 @@ void SI47XX_SetFreq(uint16_t freq) {
   } else if (SI47XX_IsSSB()) {
     cmd[0] = CMD_AM_TUNE_FREQ;
     size = 6;
-    if (si4732mode == SI47XX_USB)
-      cmd[1] = 0x80;
-    else
-      cmd[1] = 0x40;
+    cmd[1] = (si4732mode == SI47XX_USB) ? AM_TUNE_ARG1_FAST_USB : AM_TUNE_ARG1_FAST_LSB;
     if (freq > 1800)
       cmd[5] = 1;
   } else if (si4732mode == SI47XX_CW) {
     cmd[0] = CMD_AM_TUNE_FREQ;
     size = 6;
-    cmd[1] = 0x40; /* LSB for CW */
+    cmd[1] = AM_TUNE_ARG1_FAST_LSB; /* CW 走 LSB 解调 */
     if (freq > 1800)
       cmd[5] = 1;
   }
@@ -312,7 +311,19 @@ void SI47XX_SetFreq(uint16_t freq) {
   waitToSend();
   SI47XX_WriteBuffer(cmd, size);
   siCurrentFreq = freq;
-  SYSTEM_DelayMs(30);
+  {
+    /* HF 换频后 PLL/AGC 需更长时间稳定；原固定 30ms 在 >20MHz SSB 上偏短 */
+    unsigned tuneMs = 30u;
+    if (isAmFamilyStatic()) {
+      if (freq > 20000u)
+        tuneMs = 100u;
+      else if (freq > 12000u)
+        tuneMs = 70u;
+      else if (freq > 6000u)
+        tuneMs = 50u;
+    }
+    SYSTEM_DelayMs(tuneMs);
+  }
   /* 换频后重发 LNA/BW/BFO，避免芯片暂态或内部状态与 UI 不一致导致无声 */
   if (isAmFamilyStatic())
     FM_ApplyAMOptions();
