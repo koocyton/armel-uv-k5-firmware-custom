@@ -1,4 +1,5 @@
 #include "si473x.h"
+#include "app/fm.h"
 #include "audio.h"
 #include "settings.h"
 #include "bsp/dp32g030/gpio.h"
@@ -245,9 +246,8 @@ static void SI47XX_PatchPowerUp(void) {
   AUDIO_AudioPathOn();
   setVolume(63);
   SI47XX_SetFreq(Read_FreqSaved() / divider);
-  /* 弱信号时软静音减轻底噪；AVC 最大增益略降减少噪声放大 */
-  sendProperty(PROP_SSB_SOFT_MUTE_MAX_ATTENUATION, 8);   /* 8dB 衰减 */
-  sendProperty(PROP_SSB_SOFT_MUTE_SNR_THRESHOLD, 8);     /* SNR<8dB 时触发 */
+  /* SSB 软静音关闭：见 PROP_SSB_SOFT_MUTE_MAX_ATTENUATION 说明，0=禁用；换频 SNR 暂态易误判 */
+  sendProperty(PROP_SSB_SOFT_MUTE_MAX_ATTENUATION, 0);
   sendProperty(PROP_AM_AUTOMATIC_VOLUME_CONTROL_MAX_GAIN, 0x5000); /* 原 0x7800 */
 }
 
@@ -313,6 +313,9 @@ void SI47XX_SetFreq(uint16_t freq) {
   SI47XX_WriteBuffer(cmd, size);
   siCurrentFreq = freq;
   SYSTEM_DelayMs(30);
+  /* 换频后重发 LNA/BW/BFO，避免芯片暂态或内部状态与 UI 不一致导致无声 */
+  if (isAmFamilyStatic())
+    FM_ApplyAMOptions();
 }
 
 void SI47XX_SetSeekFmLimits(uint16_t bottom, uint16_t top) {

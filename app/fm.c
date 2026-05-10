@@ -85,7 +85,7 @@ uint8_t FM_GetAM_BW_Index(void)   { return gAM_BW_Index; }
 uint8_t FM_GetAM_StepIndex(void)   { return gAM_StepIndex; }
 int16_t FM_GetAM_BFO_Hz(void)      { return gAM_BFO_Hz; }
 
-static void FM_ApplyAMOptions(void) {
+void FM_ApplyAMOptions(void) {
 	SI47XX_SetAMLna(gAM_LnaIndex);
 	SI47XX_SetAMBandwidth(gAM_BW_Index);
 	SI47XX_SetBFO(gAM_BFO_Hz);
