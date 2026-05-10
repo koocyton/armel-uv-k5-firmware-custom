@@ -40,6 +40,21 @@ void UI_DisplayFmWait(void)
 	UI_FillRectangleBuffer(gFrameBuffer, x1, y1, x2, y2, true);
 	UI_PrintStringInverted("waiting", (uint8_t)x1, (uint8_t)(x2 + 1), 2, 8);
 }
+
+/* freq01: 0.01 MHz 步进（8750 = 87.50 MHz），输出不含单位，如 "87.5"、"108.0" */
+static int FM_SprintfMHzTrim(char *buf, unsigned freq01)
+{
+	const unsigned maj  = freq01 / 100u;
+	const unsigned frac = freq01 % 100u;
+
+	if (frac == 0u)
+		return sprintf(buf, "%u.0", maj);
+	if (frac % 10u == 0u)
+		return sprintf(buf, "%u.%u", maj, frac / 10u);
+	if (frac < 10u)
+		return sprintf(buf, "%u.0%u", maj, frac);
+	return sprintf(buf, "%u.%02u", maj, frac);
+}
 #endif
 
 void UI_DisplayFM(void)
@@ -113,8 +128,11 @@ void UI_DisplayFM(void)
 		{
 			const unsigned lo = (unsigned)BK1080_GetFreqLoLimit(gEeprom.FM_Band);
 			const unsigned hi = (unsigned)BK1080_GetFreqHiLimit(gEeprom.FM_Band);
-			sprintf(String, "%u.%02u-%u.%02uM",
-				lo / 100u, lo % 100u, hi / 100u, hi % 100u);
+			int n = FM_SprintfMHzTrim(String, lo);
+
+			n += sprintf(String + n, "-");
+			n += FM_SprintfMHzTrim(String + n, hi);
+			sprintf(String + n, "M");
 		}
 #else
 		sprintf(String, "%d%s-%dM",
