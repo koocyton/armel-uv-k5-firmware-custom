@@ -466,11 +466,13 @@ uint8_t GetBWRegValueForScan()
 
 uint16_t GetRssi()
 {
-    // SYSTICK_DelayUs(800);
-    // testing autodelay based on Glitch value
-    while ((BK4819_ReadRegister(0x63) & 0b11111111) >= 255)
+    /* Reg 0x63 glitch counter can sit at 255 while synthesizer settles; unbounded
+     * wait makes spectrum sweep stall badly. Cap waits (~1.5 ms worst case). */
+    unsigned glitch_wait = 0;
+    while ((BK4819_ReadRegister(0x63) & 0xFF) >= 255 && glitch_wait < 15)
     {
         SYSTICK_DelayUs(100);
+        glitch_wait++;
     }
     uint16_t rssi = BK4819_GetRSSI();
 #ifdef ENABLE_AM_FIX
@@ -1537,7 +1539,9 @@ bool HandleUserInput()
             kbd.counter++;
         else
             kbd.counter -= 3;
-        SYSTEM_DelayMs(20);
+        /* Do not block the sweep with DelayMs(20) every tick — it makes spectrum
+         * stutter severely while a key is held (each bin waits ~20 ms). */
+        SYSTICK_DelayUs(400);
     }
     else
     {

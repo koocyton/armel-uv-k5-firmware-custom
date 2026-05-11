@@ -129,6 +129,9 @@ void SETTINGS_InitEEPROM(void)
     // 0E40..0E67
     EEPROM_ReadBuffer(0x0E40, gFM_Channels, sizeof(gFM_Channels));
     FM_ConfigureChannelState();
+#ifdef ENABLE_FM_SI4732
+    FM_LoadAMFrequencyFromEeprom();
+#endif
 #endif
 
     // 0E90..0E97

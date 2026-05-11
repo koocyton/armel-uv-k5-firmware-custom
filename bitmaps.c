@@ -361,6 +361,36 @@ const uint8_t BITMAP_NOAA[12] =
 };
 #endif
 
+#if defined(ENABLE_FMRADIO) && defined(ENABLE_FM_SI4732)
+const uint8_t BITMAP_FM[10] =
+{
+    0b00000000,
+    0b01111111,
+    0b00001001,
+    0b00000001,
+    0b00000000,
+    0b01111111,
+    0b00000010,
+    0b00001100,
+    0b00000010,
+    0b01111111
+};
+
+const uint8_t BITMAP_AM[10] =
+{
+    0b00000000,
+    0b01111111,
+    0b00001001,
+    0b00001001,
+    0b01111111,
+    0b01111111,
+    0b00010010,
+    0b00100100,
+    0b01001000,
+    0b01111111
+};
+#endif
+
 #ifndef ENABLE_CUSTOM_MENU_LAYOUT
 const uint8_t BITMAP_CurrentIndicator[8] = {
     0xFF,

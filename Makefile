@@ -5,6 +5,10 @@
 
 # ---- STOCK QUANSHENG FEATURES ----
 ENABLE_FMRADIO                  ?= 0
+# Si4732 (FM/AM/SSB) 收音机：需 ENABLE_FMRADIO=1；0 时使用 BK1080
+ENABLE_SI4732                   ?= 0
+ENABLE_FM_SI4732_AUDIO_PATH_INVERTED ?= 0
+ENABLE_SI4732_AM_USE_FMI        ?= 0
 ENABLE_UART                     ?= 1
 ENABLE_AIRCOPY                  ?= 0
 ENABLE_NOAA                     ?= 0
@@ -119,7 +123,12 @@ ifeq ($(ENABLE_UART),1)
 endif
 OBJS += driver/backlight.o
 ifeq ($(ENABLE_FMRADIO),1)
+ifeq ($(ENABLE_SI4732),1)
+	OBJS += driver/si473x.o
+	OBJS += driver/si4732.o
+else
 	OBJS += driver/bk1080.o
+endif
 endif
 OBJS += driver/bk4819.o
 ifeq ($(filter $(ENABLE_AIRCOPY) $(ENABLE_UART),1),1)
@@ -326,6 +335,15 @@ ifeq ($(ENABLE_AIRCOPY),1)
 endif
 ifeq ($(ENABLE_FMRADIO),1)
 	CFLAGS += -DENABLE_FMRADIO
+ifeq ($(ENABLE_SI4732),1)
+	CFLAGS += -DENABLE_SI4732 -DENABLE_FM_SI4732
+endif
+endif
+ifeq ($(ENABLE_FM_SI4732_AUDIO_PATH_INVERTED),1)
+	CFLAGS += -DENABLE_FM_SI4732_AUDIO_PATH_INVERTED
+endif
+ifeq ($(ENABLE_SI4732_AM_USE_FMI),1)
+	CFLAGS += -DENABLE_SI4732_AM_USE_FMI
 endif
 ifeq ($(ENABLE_UART),1)
 	CFLAGS += -DENABLE_UART

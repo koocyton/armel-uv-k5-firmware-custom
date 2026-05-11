@@ -1172,7 +1172,19 @@ static void CheckKeys(void)
     }
 #endif
 
+#if defined(ENABLE_FMRADIO) && defined(ENABLE_FM_SI4732)
+    const bool ignore_ptt_gpio_fm = gFmRadioMode;
+#else
+    const bool ignore_ptt_gpio_fm = false;
+#endif
+
 // -------------------- PTT ------------------------
+    if (ignore_ptt_gpio_fm) {
+        gPttDebounceCounter = 0;
+        gPttIsPressed       = false;
+        gPttWasPressed      = false;
+    }
+    else
 #ifdef ENABLE_FEAT_F4HWN
     if (gSetting_set_ptt_session)
     {
@@ -1325,10 +1337,15 @@ static void CheckKeys(void)
         return;
     }
 
-    if (gDebounceCounter < key_repeat_delay_10ms || Key == KEY_INVALID) // the button is not held long enough for repeat yet, or not really pressed
+    uint16_t hold_threshold_10ms = key_repeat_delay_10ms;
+#if defined(ENABLE_FMRADIO) && defined(ENABLE_FM_SI4732)
+    if (gScreenToDisplay == DISPLAY_FM && Key == KEY_F)
+        hold_threshold_10ms = key_repeat_delay_10ms * 2;
+#endif
+    if (gDebounceCounter < hold_threshold_10ms || Key == KEY_INVALID) // the button is not held long enough for repeat yet, or not really pressed
         return;
 
-    if (gDebounceCounter == key_repeat_delay_10ms) //initial key repeat with longer delay
+    if (gDebounceCounter == hold_threshold_10ms) //initial key repeat with longer delay
     {
         if (Key != KEY_PTT)
         {

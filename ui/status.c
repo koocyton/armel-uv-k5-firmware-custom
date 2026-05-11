@@ -91,6 +91,17 @@ void UI_DisplayStatus()
     }
     else
 #endif
+#if defined(ENABLE_FMRADIO) && defined(ENABLE_FM_SI4732)
+    if (gFmRadioMode) {
+        if (FM_IsAMMode()) {
+            memcpy(line + x, BITMAP_AM, sizeof(BITMAP_AM));
+            x1 = x + sizeof(BITMAP_AM);
+        } else {
+            memcpy(line + x, BITMAP_FM, sizeof(BITMAP_FM));
+            x1 = x + sizeof(BITMAP_FM);
+        }
+    } else
+#endif
     { // SCAN indicator
         if (gScanStateDir != SCAN_OFF || SCANNER_IsScanning()) {
             if (IS_MR_CHANNEL(gNextMrChannel) && !SCANNER_IsScanning()) { // channel mode

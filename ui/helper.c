@@ -98,6 +98,24 @@ void UI_PrintString(const char *pString, uint8_t Start, uint8_t End, uint8_t Lin
     }
 }
 
+void UI_PrintStringInverted(const char *pString, uint8_t Start, uint8_t End, uint8_t Line, uint8_t Width)
+{
+    size_t i;
+    size_t Length = strlen(pString);
+    if (End > Start)
+        Start += (((End - Start) - (Length * Width)) + 1) / 2;
+    for (i = 0; i < Length; i++) {
+        const unsigned int ofs = (unsigned int)Start + (i * Width);
+        if (pString[i] > ' ' && pString[i] < 127) {
+            const unsigned int index = pString[i] - ' ' - 1;
+            for (unsigned int j = 0; j < 7; j++)
+                gFrameBuffer[Line + 0][ofs + j] &= (uint8_t)~gFontBig[index][j];
+            for (unsigned int j = 0; j < 7; j++)
+                gFrameBuffer[Line + 1][ofs + j] &= (uint8_t)~gFontBig[index][7 + j];
+        }
+    }
+}
+
 void UI_PrintStringSmall(const char *pString, uint8_t Start, uint8_t End, uint8_t Line, uint8_t char_width, const uint8_t *font)
 {
     const size_t Length = strlen(pString);
@@ -321,6 +339,26 @@ void UI_DrawRectangleBuffer(uint8_t (*buffer)[128], int16_t x1, int16_t y1, int1
     UI_DrawLineBuffer(buffer, x1,y1, x2,y1, black);
     UI_DrawLineBuffer(buffer, x2,y1, x2,y2, black);
     UI_DrawLineBuffer(buffer, x1,y2, x2,y2, black);
+}
+
+void UI_FillRectangleBuffer(uint8_t (*buffer)[128], int16_t x1, int16_t y1, int16_t x2, int16_t y2, bool black)
+{
+    int16_t x, y;
+    for (y = y1; y <= y2; y++)
+        for (x = x1; x <= x2; x++)
+            UI_DrawPixelBuffer(buffer, (uint8_t)x, (uint8_t)y, black);
+}
+
+void UI_InvertRectangleBuffer(uint8_t (*buffer)[128], int16_t x1, int16_t y1, int16_t x2, int16_t y2)
+{
+    int16_t x, y;
+    for (y = y1; y <= y2; y++)
+        for (x = x1; x <= x2; x++) {
+            const uint8_t py = (uint8_t)y;
+            const uint8_t px = (uint8_t)x;
+            const uint8_t pattern = 1 << (py % 8);
+            buffer[py / 8][px] ^= pattern;
+        }
 }
 
 

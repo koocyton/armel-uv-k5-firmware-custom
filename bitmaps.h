@@ -51,6 +51,11 @@ extern const uint8_t BITMAP_compand[6];
 
 extern const uint8_t BITMAP_NOAA[12];
 
+#if defined(ENABLE_FMRADIO) && defined(ENABLE_FM_SI4732)
+extern const uint8_t BITMAP_FM[10];
+extern const uint8_t BITMAP_AM[10];
+#endif
+
 #ifndef ENABLE_CUSTOM_MENU_LAYOUT
     extern const uint8_t BITMAP_CurrentIndicator[8];
 #endif

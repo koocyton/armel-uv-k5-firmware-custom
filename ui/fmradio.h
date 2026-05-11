@@ -18,7 +18,10 @@
 #define UI_FM_H
 
 #ifdef ENABLE_FMRADIO
-    void UI_DisplayFM(void);
+void UI_DisplayFM(void);
+#ifdef ENABLE_FM_SI4732
+void UI_DisplayFmWait(void);
+#endif
 #endif
 
 #endif

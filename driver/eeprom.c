@@ -61,3 +61,28 @@ void EEPROM_WriteBuffer(uint16_t Address, const void *pBuffer)
     // give the EEPROM time to burn the data in (apparently takes 5ms)
     SYSTEM_DelayMs(8);
 }
+
+#if defined(ENABLE_SI4732) && defined(ENABLE_FMRADIO)
+void EEPROM_ReadBuffer32(uint32_t Address, void *pBuffer, uint16_t Size)
+{
+    uint8_t *dst = (uint8_t *)pBuffer;
+    for (uint16_t offset = 0; offset < Size; ) {
+        uint16_t chunk = Size - offset;
+        if (chunk > 248)
+            chunk = 248;
+        uint32_t a = Address + offset;
+        uint8_t dev = (uint8_t)(0xA0U | ((a / 65536U) << 1));
+        uint16_t addr16 = (uint16_t)(a & 0xFFFFU);
+
+        I2C_Start();
+        I2C_Write(dev);
+        I2C_Write((uint8_t)(addr16 >> 8));
+        I2C_Write((uint8_t)(addr16 & 0xFF));
+        I2C_Start();
+        I2C_Write(dev | 1);
+        I2C_ReadBuffer(dst + offset, (uint8_t)chunk);
+        I2C_Stop();
+        offset += chunk;
+    }
+}
+#endif

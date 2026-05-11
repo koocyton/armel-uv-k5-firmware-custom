@@ -1,0 +1,22 @@
+# Do not bake host build artifacts into the image: mixed .o files + LTO cause
+# -Wlto-type-mismatch on gEeprom and undefined refs to symbols excluded by ENABLE_* flags.
+.git/
+compiled-firmware/
+
+**/*.o
+**/*.d
+**/*.su
+**/*.gcda
+**/*.gcno
+
+*.bin
+*.packed.bin
+*.elf
+*.hex
+*.map
+
+f4hwn
+f4hwn.*
+
+# Bare ELF when TARGET=firmware (do not use firmware.* — that excludes firmware.ld).
+firmware
