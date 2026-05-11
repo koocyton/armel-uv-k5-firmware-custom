@@ -17,9 +17,6 @@
 #include <string.h>
 
 #include "app/chFrScanner.h"
-#ifdef ENABLE_FMRADIO
-    #include "app/fm.h"
-#endif
 #include "app/scanner.h"
 #include "bitmaps.h"
 #include "driver/keyboard.h"
@@ -92,15 +89,8 @@ void UI_DisplayStatus()
     else
 #endif
 #if defined(ENABLE_FMRADIO) && defined(ENABLE_FM_SI4732)
-    if (gFmRadioMode) {
-        if (FM_IsAMMode()) {
-            memcpy(line + x, BITMAP_AM, sizeof(BITMAP_AM));
-            x1 = x + sizeof(BITMAP_AM);
-        } else {
-            memcpy(line + x, BITMAP_FM, sizeof(BITMAP_FM));
-            x1 = x + sizeof(BITMAP_FM);
-        }
-    } else
+    /* 收音机界面不在状态栏显示 AM/FM 位图（模式已在收音机画面内显示） */
+    if (!gFmRadioMode)
 #endif
     { // SCAN indicator
         if (gScanStateDir != SCAN_OFF || SCANNER_IsScanning()) {

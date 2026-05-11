@@ -51,6 +51,7 @@ void UI_DisplayFM(void)
 #ifdef ENABLE_FM_SI4732
 	if (SI47XX_IsAMFamily()) {
 		const char *mod = (si4732mode == SI47XX_AM) ? "AM" : (si4732mode == SI47XX_LSB) ? "LSB" : (si4732mode == SI47XX_USB) ? "USB" : "CW";
+		/* 左上角第 0 行：模式标签，8px 大字体（font.c gFontBig） */
 		UI_PrintString(mod, 2, 0, 0, 8);
 		/* 用一条横线分割：上方显示频率，下方设置区(LNA/BW/STP/BFO) */
 		UI_DrawLineBuffer(gFrameBuffer, 0, 38, 127, 38, true);
@@ -99,7 +100,7 @@ void UI_DisplayFM(void)
 	} else
 #endif
 	{
-		UI_PrintString("FM", 2, 0, 0, 8);
+		UI_PrintString("FM", 2, 0, 0, 8); /* 同上，Si4732 FM 模式 */
 		sprintf(String, "%d%s-%dM",
 			BK1080_GetFreqLoLimit(gEeprom.FM_Band)/10,
 			gEeprom.FM_Band == 0 ? ".5" : "",
