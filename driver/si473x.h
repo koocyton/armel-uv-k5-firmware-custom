@@ -566,8 +566,10 @@ void RSQ_GET(void);
 void SI47XX_SetAutomaticGainControl(uint8_t AGCDIS, uint8_t AGCIDX);
 /* AM/SSB: AGC ON/OFF 与 ATT 分离；attIndex 0..4 = 0, 1, 5, 15, 26 dB */
 void SI47XX_SetAMAgcAtt(bool agcOn, uint8_t attIndex);
-/* 兼容旧 LNA 索引：0=AGC ON, 1..5=ATT 0,1,5,15,26 */
+/* LNA 一档：0=AGC ON, 1..5 = AGC OFF + ATT 0,1,5,15,26 dB */
 void SI47XX_SetAMLna(uint8_t index);
+/* 中短波/SSB：BFO 偏置（Hz，有符号；硬件在 AM 模式可能忽略） */
+void SI47XX_ApplyRxBfo(int16_t hz);
 /* AM/SSB BW: index 0..6 = 0.5, 1.0, 1.2, 2.2, 3.0, 4.0, 5.0 kHz */
 void SI47XX_SetAMBandwidth(uint8_t index);
 void SI47XX_SetSeekFmLimits(uint16_t bottom, uint16_t top);

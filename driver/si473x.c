@@ -330,13 +330,19 @@ void SI47XX_SetAMAgcAtt(bool agcOn, uint8_t attIndex) {
   }
 }
 
-/* 兼容旧 LNA 索引：0=AGC ON, 1..5=ATT 0,1,5,15,26 */
+/* LNA：0=AGC ON, 1..5=AGC OFF + ATT 0,1,5,15,26 dB */
 void SI47XX_SetAMLna(uint8_t index) {
   if (index == 0) {
     SI47XX_SetAMAgcAtt(true, 0);
   } else if (index <= 5) {
     SI47XX_SetAMAgcAtt(false, (uint8_t)(index - 1));
   }
+}
+
+void SI47XX_ApplyRxBfo(int16_t hz) {
+  if (!SI47XX_IsAMFamily())
+    return;
+  sendProperty(PROP_SSB_BFO, (uint16_t)hz);
 }
 
 /* BW index 0..6 -> 0.5,1,1.2,2.2,3,4,5 kHz. AM: FLG_AMCHFLT 6k=0,4k=1,3k=2,2k=3,1k=4,1.8k=5,2.5k=6. SSB: AUDIOBW 4=0.5k,5=1k,0=1.2k,1=2.2k,2=3k,3=4k. */

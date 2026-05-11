@@ -58,14 +58,15 @@ void    FM_Play(void);
 void    FM_Start(void);
 
 #if defined(ENABLE_FMRADIO) && defined(ENABLE_FM_SI4732)
+#include <stdint.h>
 uint16_t FM_GetAM_StepKHz(void);
 bool     FM_IsAMMode(void);
 void     FM_LoadAMFrequencyFromEeprom(void);
 uint8_t  FM_GetAM_OptionFocus(void);
-bool     FM_GetAM_AGC_On(void);
-uint8_t  FM_GetAM_ATT_Index(void);
+uint8_t  FM_GetAM_LnaIndex(void);
 uint8_t  FM_GetAM_BW_Index(void);
 uint8_t  FM_GetAM_StepIndex(void);
+int16_t  FM_GetAM_BfoHz(void);
 #endif
 
 #endif

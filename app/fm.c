@@ -16,6 +16,7 @@
 
 #ifdef ENABLE_FMRADIO
 
+#include <stdint.h>
 #include <string.h>
 
 #include "app/action.h"
@@ -58,11 +59,12 @@ uint16_t          gFM_RestoreCountdown_10ms;
 #ifdef ENABLE_FM_SI4732
 /* AM mode: current frequency in kHz (500–30000, MW+SW). Used when si4732mode == SI47XX_AM. */
 static uint16_t gAM_FrequencyKHz = 720;
-/* AM 底部选项：长按 M 切换焦点 0=AGC 1=ATT 2=BW 3=STP；短按 * 修改当前子选项 */
-static uint8_t gAM_OptionFocus = 0;  /* 0=AGC, 1=ATT, 2=BW, 3=STP */
-static bool    gAM_AGC_On = true;   /* AGC 子选项：ON / OFF */
-static uint8_t gAM_ATT_Index = 0;   /* ATT 子选项：0, 1, 5, 15, 26 dB → index 0..4 */
+/* AM 底部选项：短按 M 切换焦点 0=LNA 1=BW 2=STP 3=BFO；短按 * 循环当前子选项（BFO 用上下键） */
+static uint8_t gAM_OptionFocus = 0;
+/* LNA：0=AGC ON，1..5=AGC OFF + ATT 0,1,5,15,26 dB */
+static uint8_t gAM_LnaIndex = 0;
 static uint8_t gAM_BW_Index = 2;    /* 0..6 = 0.5,1,1.2,2.2,3,4,5 kHz，默认 1.2 */
+static int16_t gAM_BfoHz = 0;       /* BFO 偏置 Hz，单边带/中短波 UI 统调 */
 /* Step index 0..4 = 1, 5, 10, 100, 1000 kHz，显示 1K 5K 10K 100K 1000K */
 static uint8_t gAM_StepIndex = 0;   /* 默认 1k */
 /* 长按 F 刚进入单边带时置位，松键清除；避免同一长按的后续 held 事件立刻触发“退回 AM” */
@@ -79,14 +81,15 @@ uint16_t FM_GetAM_StepKHz(void)
 }
 
 uint8_t FM_GetAM_OptionFocus(void) { return gAM_OptionFocus; }
-bool    FM_GetAM_AGC_On(void)      { return gAM_AGC_On; }
-uint8_t FM_GetAM_ATT_Index(void)   { return gAM_ATT_Index; }
+uint8_t FM_GetAM_LnaIndex(void)   { return gAM_LnaIndex; }
 uint8_t FM_GetAM_BW_Index(void)   { return gAM_BW_Index; }
 uint8_t FM_GetAM_StepIndex(void)   { return gAM_StepIndex; }
+int16_t FM_GetAM_BfoHz(void)      { return gAM_BfoHz; }
 
 static void FM_ApplyAMOptions(void) {
-	SI47XX_SetAMAgcAtt(gAM_AGC_On, gAM_ATT_Index);
+	SI47XX_SetAMLna(gAM_LnaIndex);
 	SI47XX_SetAMBandwidth(gAM_BW_Index);
+	SI47XX_ApplyRxBfo(gAM_BfoHz);
 }
 
 bool FM_IsAMMode(void)
@@ -100,15 +103,24 @@ static void FM_SaveAMFreqToEeprom(void)
 	EEPROM_ReadBuffer(FM_EEPROM_AM_KHZ, buf, 8);
 	buf[0] = (uint8_t)(gAM_FrequencyKHz & 0xFF);
 	buf[1] = (uint8_t)(gAM_FrequencyKHz >> 8);
+	buf[2] = (uint8_t)((uint16_t)gAM_BfoHz & 0xFF);
+	buf[3] = (uint8_t)((uint16_t)gAM_BfoHz >> 8);
+	buf[4] = gAM_LnaIndex;
 	EEPROM_WriteBuffer(FM_EEPROM_AM_KHZ, buf);
 }
 
 void FM_LoadAMFrequencyFromEeprom(void)
 {
-	uint16_t khz;
-	EEPROM_ReadBuffer(FM_EEPROM_AM_KHZ, (uint8_t *)&khz, 2);
+	uint8_t buf[8];
+	EEPROM_ReadBuffer(FM_EEPROM_AM_KHZ, buf, 8);
+	uint16_t khz = (uint16_t)buf[0] | ((uint16_t)buf[1] << 8);
 	if (khz >= 500 && khz <= 30000)
 		gAM_FrequencyKHz = khz;
+	gAM_BfoHz = (int16_t)((uint16_t)buf[2] | ((uint16_t)buf[3] << 8));
+	if (buf[4] <= 5)
+		gAM_LnaIndex = buf[4];
+	else
+		gAM_LnaIndex = 0;
 }
 #endif
 
@@ -355,6 +367,7 @@ static void Key_DIGITS(KEY_Code_t Key, uint8_t state)
 					FM_SaveAMFreqToEeprom();
 					gInputBoxIndex = 0;
 					SI47XX_SetFreq(gAM_FrequencyKHz);
+					FM_ApplyAMOptions();
 					gUpdateStatus = true;
 				}
 				return;
@@ -519,6 +532,7 @@ static void Key_EXIT(uint8_t state)
 				FM_SaveAMFreqToEeprom();
 				gInputBoxIndex = 0;
 				SI47XX_SetFreq(gAM_FrequencyKHz);
+				FM_ApplyAMOptions();
 				gUpdateStatus = true;
 				gRequestDisplayScreen = DISPLAY_FM;
 				return;
@@ -586,8 +600,15 @@ static void Key_UP_DOWN(uint8_t state, int8_t Step)
 	}
 
 #ifdef ENABLE_FM_SI4732
-	/* AM mode: step 1/5/10/50/100/1000 kHz (STAR 改子选项), 500–30000 kHz */
 	if (SI47XX_IsAMFamily()) {
+		if (gAM_OptionFocus == 3) {
+			gAM_BfoHz += (int16_t)Step;
+			SI47XX_ApplyRxBfo(gAM_BfoHz);
+			FM_SaveAMFreqToEeprom();
+			gRequestDisplayScreen = DISPLAY_FM;
+			gUpdateStatus = true;
+			return;
+		}
 		uint16_t step = FM_GetAM_StepKHz();
 		int32_t next = (int32_t)gAM_FrequencyKHz + (int32_t)Step * (int32_t)step;
 		if (next < 500) next = 30000;
@@ -595,6 +616,7 @@ static void Key_UP_DOWN(uint8_t state, int8_t Step)
 		gAM_FrequencyKHz = (uint16_t)next;
 		FM_SaveAMFreqToEeprom();
 		SI47XX_SetFreq(gAM_FrequencyKHz);
+		FM_ApplyAMOptions();
 		gRequestDisplayScreen = DISPLAY_FM;
 		gUpdateStatus = true;
 		return;
@@ -654,23 +676,24 @@ void FM_ProcessKeys(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 		case KEY_STAR:
 #ifdef ENABLE_FM_SI4732
 			if (SI47XX_IsAMFamily() && gInputBoxIndex == 0 && state == BUTTON_EVENT_SHORT) {
-				/* 短按 * 修改当前焦点对应的子选项 */
+				/* 短按 * 修改当前焦点对应的子选项（BFO 用上下键 ±1 Hz） */
 				switch (gAM_OptionFocus) {
 				case 0:
-					gAM_AGC_On = !gAM_AGC_On;
-					SI47XX_SetAMAgcAtt(gAM_AGC_On, gAM_ATT_Index);
+					gAM_LnaIndex = (uint8_t)((gAM_LnaIndex + 1) % 6);
+					FM_ApplyAMOptions();
 					break;
 				case 1:
-					gAM_ATT_Index = (gAM_ATT_Index + 1) % 5;
-					SI47XX_SetAMAgcAtt(gAM_AGC_On, gAM_ATT_Index);
+					gAM_BW_Index = (gAM_BW_Index + 1) % 7;
+					FM_ApplyAMOptions();
 					break;
 				case 2:
-					gAM_BW_Index = (gAM_BW_Index + 1) % 7;
-					SI47XX_SetAMBandwidth(gAM_BW_Index);
-					break;
-				case 3:
 					gAM_StepIndex = (gAM_StepIndex + 1) % AM_STEP_COUNT;
 					break;
+				case 3:
+					break;
+				}
+				if (gAM_OptionFocus != 3) {
+					FM_SaveAMFreqToEeprom();
 				}
 				gUpdateStatus = true;
 				gRequestDisplayScreen = DISPLAY_FM;
@@ -683,7 +706,7 @@ void FM_ProcessKeys(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 		case KEY_MENU:
 #ifdef ENABLE_FM_SI4732
 			if (SI47XX_IsAMFamily()) {
-				/* 中短波下：短按 M 在 AGC/ATT/BW/STP 间切换，长按 M 无效 */
+				/* 中短波下：短按 M 在 LNA/BW/STP/BFO 间切换，长按 M 无效 */
 				if (bKeyPressed && !bKeyHeld) {
 					gAM_OptionFocus = (gAM_OptionFocus + 1) % 4;
 					gRequestDisplayScreen = DISPLAY_FM;
