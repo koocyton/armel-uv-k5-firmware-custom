@@ -5,6 +5,7 @@ firmware
 /firmware.bin
 /compiled-firmware
 .cache
+/.tools
 compile_commands.json
 .vscode
 /docs
