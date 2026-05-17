@@ -684,16 +684,10 @@ static void MAIN_Key_UP_DOWN(bool bKeyPressed, bool bKeyHeld, int8_t Direction)
 void MAIN_ProcessKeys(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 {
 #ifdef ENABLE_FMRADIO
-	// When radio (FM/AM via SI4732) is active, never treat PTT as "start TX".
-	// Keep behavior consistent with radio screen: PTT acts like EXIT.
-	if (gFmRadioMode) {
-		if (Key == KEY_PTT)
-			Key = KEY_EXIT;
-		if (Key != KEY_EXIT) {
-			if (!bKeyHeld && bKeyPressed)
-				gBeepToPlay = BEEP_500HZ_60MS_DOUBLE_BEEP_OPTIONAL;
-			return;
-		}
+	if (gFmRadioMode && Key != KEY_PTT && Key != KEY_EXIT) {
+		if (!bKeyHeld && bKeyPressed)
+			gBeepToPlay = BEEP_500HZ_60MS_DOUBLE_BEEP_OPTIONAL;
+		return;
 	}
 #endif
 

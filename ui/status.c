@@ -72,17 +72,9 @@ void UI_DisplayStatus()
 	else
 #endif
 #ifdef ENABLE_FMRADIO
-	if (gFmRadioMode) { // FM/AM indicator
-#ifdef ENABLE_FM_SI4732
-		if (FM_IsAMMode()) {
-			memcpy(line + x, BITMAP_AM, sizeof(BITMAP_AM));
-			x1 = x + sizeof(BITMAP_AM);
-		} else
-#endif
-		{
-			memcpy(line + x, BITMAP_FM, sizeof(BITMAP_FM));
-			x1 = x + sizeof(BITMAP_FM);
-		}
+	if (gFmRadioMode) { // FM indicator
+		memcpy(line + x, BITMAP_FM, sizeof(BITMAP_FM));
+		x1 = x + sizeof(BITMAP_FM);
 	}
 	else
 #endif

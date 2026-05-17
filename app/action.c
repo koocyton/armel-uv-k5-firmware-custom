@@ -326,9 +326,6 @@ void ACTION_Handle(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 
 
 #ifdef ENABLE_FMRADIO
-/* Channel when entering Radio; restored on exit so we don't jump to last channel */
-static uint8_t gFM_EnterScreenChannel[2];
-
 void ACTION_FM(void)
 {
 	if (gCurrentFunction != FUNCTION_TRANSMIT && gCurrentFunction != FUNCTION_MONITOR)
@@ -336,13 +333,6 @@ void ACTION_FM(void)
 		gInputBoxIndex = 0;
 
 		if (gFmRadioMode) {
-			/* Restore channel to what it was when we entered Radio (not CHANNEL_SAVE which may have changed) */
-			gEeprom.ScreenChannel[0] = gFM_EnterScreenChannel[0];
-			gEeprom.ScreenChannel[1] = gFM_EnterScreenChannel[1];
-			gEeprom.VfoInfo[0].CHANNEL_SAVE = gFM_EnterScreenChannel[0];
-			gEeprom.VfoInfo[1].CHANNEL_SAVE = gFM_EnterScreenChannel[1];
-			SETTINGS_SaveVfoIndices();
-			SETTINGS_SaveFM();
 			FM_TurnOff();
 			gFlagReconfigureVfos  = true;
 			gRequestDisplayScreen = DISPLAY_MAIN;
@@ -355,10 +345,6 @@ void ACTION_FM(void)
 
 		gMonitor = false;
 
-		/* Remember current channel so we can restore it when exiting Radio */
-		gFM_EnterScreenChannel[0] = gEeprom.ScreenChannel[0];
-		gFM_EnterScreenChannel[1] = gEeprom.ScreenChannel[1];
-
 		RADIO_SelectVfos();
 		RADIO_SetupRegisters(true);
 
@@ -370,7 +356,6 @@ void ACTION_FM(void)
 
 static void ACTION_Scan_FM(bool bRestart)
 {
-	(void)bRestart;
 	if (FUNCTION_IsRx())
 		return;
 
@@ -386,8 +371,27 @@ static void ACTION_Scan_FM(bool bRestart)
 #endif
 		return;
 	}
-	// 禁用 FM 搜索/扫描功能：不再允许从收音机界面启动扫描
-	gBeepToPlay = BEEP_500HZ_60MS_DOUBLE_BEEP_OPTIONAL;
+
+	uint16_t freq;
+
+	if (bRestart) {
+		gFM_AutoScan = true;
+		gFM_ChannelPosition = 0;
+		FM_EraseChannels();
+		freq = BK1080_GetFreqLoLimit(gEeprom.FM_Band);
+	} else {
+		gFM_AutoScan = false;
+		gFM_ChannelPosition = 0;
+		freq = gEeprom.FM_FrequencyPlaying;
+	}
+
+	BK1080_GetFrequencyDeviation(freq);
+	FM_Tune(freq, 1, bRestart);
+
+#ifdef ENABLE_VOICE
+	gAnotherVoiceID = VOICE_ID_SCANNING_BEGIN;
+#endif
+
 }
 
 #endif

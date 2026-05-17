@@ -172,9 +172,6 @@ int32_t TX_freq_check(const uint32_t Frequency)
 	switch (gSetting_F_LOCK)
 	{
 		case F_LOCK_DEF:
-			// 30MHz 及以下不再禁发（频率单位为 10Hz：30MHz = 3,000,000）
-			if (Frequency <= 3000000)
-				return 0;
 			if (Frequency >= frequencyBandTable[BAND3_137MHz].lower && Frequency < frequencyBandTable[BAND3_137MHz].upper)
 				return 0;
 			if (Frequency >= frequencyBandTable[BAND4_174MHz].lower && Frequency < frequencyBandTable[BAND4_174MHz].upper)

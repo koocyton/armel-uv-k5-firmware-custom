@@ -157,7 +157,7 @@ void GENERIC_Key_PTT(bool bKeyPressed)
 
 #ifdef ENABLE_FMRADIO
 	if (gScreenToDisplay == DISPLAY_FM)
-		goto cancel_tx;	// in radio screen: never start TX here
+		goto start_tx;	// listening to the FM radio .. start TX'ing
 #endif
 
 	if (gCurrentFunction == FUNCTION_TRANSMIT && gRTTECountdown_10ms == 0) {// already transmitting

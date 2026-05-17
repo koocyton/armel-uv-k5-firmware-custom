@@ -8,7 +8,6 @@ extern const uint8_t BITMAP_POWERSAVE[8];
 extern const uint8_t BITMAP_TX[8];
 extern const uint8_t BITMAP_RX[8];
 extern const uint8_t BITMAP_FM[10];
-extern const uint8_t BITMAP_AM[10];
 extern const uint8_t BITMAP_BatteryLevel[2];
 extern const uint8_t BITMAP_BatteryLevel1[17];
 

@@ -4,25 +4,16 @@
 # 1 = enable
 
 # ---- STOCK QUANSHENG FERATURES ----
-# UART = 电脑写频/连接 (CPS、编程线). 0=关闭(省Flash,电脑连不上); 1=开启(需配合关闭其它功能才能塞进Flash,见README).
 ENABLE_UART                   ?= 1
 ENABLE_AIRCOPY                ?= 0
 ENABLE_FMRADIO                ?= 1
-# FM radio chip: 0 = BK1080 (stock), 1 = Si4732 (FM/AM)
-ENABLE_FM_SI4732              ?= 1
-# Si4732: 1 = invert (pin low = FM), 0 = normal (pin high = FM). Try 0 then 1 if no sound.
-ENABLE_FM_SI4732_AUDIO_PATH_INVERTED ?= 0
-# Si4732 AM/SSB 使用 FMI 天线输入：1=尝试设置 PROP_FM_ANTENNA_INPUT（实验性，部分芯片可能有效）
-ENABLE_SI4732_AM_USE_FMI             ?= 0
-# 2Mbit EEPROM: 1=report 256KB to CPS (version "HS" + Padding hint). 0=report 64Kbit.
-ENABLE_2MBIT_EEPROM           ?= 1
 ENABLE_NOAA                   ?= 0
 ENABLE_VOICE                  ?= 0
 ENABLE_VOX                    ?= 1
 ENABLE_ALARM                  ?= 0
 ENABLE_TX1750                 ?= 0
 ENABLE_PWRON_PASSWORD         ?= 0
-ENABLE_DTMF_CALLING           ?= 0
+ENABLE_DTMF_CALLING           ?= 1
 ENABLE_FLASHLIGHT             ?= 1
 
 # ---- CUSTOM MODS ----
@@ -95,12 +86,7 @@ ifeq ($(ENABLE_UART),1)
 endif
 OBJS += driver/backlight.o
 ifeq ($(ENABLE_FMRADIO),1)
-ifeq ($(ENABLE_FM_SI4732),1)
-	OBJS += driver/si473x.o
-	OBJS += driver/si4732.o
-else
 	OBJS += driver/bk1080.o
-endif
 endif
 OBJS += driver/bk4819.o
 ifeq ($(filter $(ENABLE_AIRCOPY) $(ENABLE_UART),1),1)
@@ -280,18 +266,6 @@ endif
 ifeq ($(ENABLE_FMRADIO),1)
 	CFLAGS += -DENABLE_FMRADIO
 endif
-ifeq ($(ENABLE_FM_SI4732),1)
-	CFLAGS += -DENABLE_FM_SI4732
-endif
-ifeq ($(ENABLE_FM_SI4732_AUDIO_PATH_INVERTED),1)
-	CFLAGS += -DENABLE_FM_SI4732_AUDIO_PATH_INVERTED
-endif
-ifeq ($(ENABLE_SI4732_AM_USE_FMI),1)
-	CFLAGS += -DENABLE_SI4732_AM_USE_FMI
-endif
-ifeq ($(ENABLE_2MBIT_EEPROM),1)
-	CFLAGS += -DENABLE_2MBIT_EEPROM
-endif
 ifeq ($(ENABLE_UART),1)
 	CFLAGS += -DENABLE_UART
 endif
@@ -417,8 +391,7 @@ ifeq ($(DEBUG),1)
 endif
 
 INC =
-# Use relative path so .d files don't embed host path (fixes Docker/build from different dir)
-INC += -I .
+INC += -I $(TOP)
 INC += -I $(TOP)/external/CMSIS_5/CMSIS/Core/Include/
 INC += -I $(TOP)/external/CMSIS_5/Device/ARM/ARMCM0/Include
 
@@ -439,9 +412,7 @@ ifdef MY_PYTHON
 endif
 
 all: $(TARGET)
-	# Ensure the raw binary is padded/aligned to the full flash image size.
-	# Flash region in firmware.ld is 60K = 0xF000 bytes at ORIGIN 0.
-	$(OBJCOPY) -O binary --gap-fill 0xFF --pad-to 0xF000 $< $<.bin
+	$(OBJCOPY) -O binary $< $<.bin
 
 ifndef MY_PYTHON
 	$(info )

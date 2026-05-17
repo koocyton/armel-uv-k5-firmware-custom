@@ -19,7 +19,6 @@
 
 #ifdef ENABLE_FMRADIO
 
-#include <stdbool.h>
 #include "driver/keyboard.h"
 
 #define FM_CHANNEL_UP	0x01
@@ -56,18 +55,6 @@ void    FM_ProcessKeys(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld);
 
 void    FM_Play(void);
 void    FM_Start(void);
-
-#if defined(ENABLE_FMRADIO) && defined(ENABLE_FM_SI4732)
-uint16_t FM_GetAM_StepKHz(void);
-bool     FM_IsAMMode(void);
-void     FM_ApplyAMOptions(void); /* LNA / AM 或 SSB 带宽 / BFO，换频后由 SI47XX_SetFreq 也会调用 */
-void     FM_LoadAMFrequencyFromEeprom(void);
-uint8_t  FM_GetAM_OptionFocus(void); /* 0=LNA 1=BW 2=STP 3=BFO */
-uint8_t  FM_GetAM_LnaIndex(void);    /* 0=AGC ON，1..5=ATT 0/1/5/15/26 dB */
-uint8_t  FM_GetAM_BW_Index(void);
-uint8_t  FM_GetAM_StepIndex(void);
-int16_t  FM_GetAM_BFO_Hz(void);
-#endif
 
 #endif
 

@@ -410,11 +410,6 @@ static_assert(ARRAY_SIZE(HandleFunction_fn_table) == FUNCTION_N_ELEM);
 
 static void HandleFunction(void)
 {
-#ifdef ENABLE_FMRADIO
-	// While in radio mode (FM/AM broadcast receiver), completely ignore the transceiver RX state machine.
-	if (gFmRadioMode)
-		return;
-#endif
 	HandleFunction_fn_table[gCurrentFunction]();
 }
 
@@ -994,20 +989,7 @@ static void CheckKeys(void)
 #endif
 
 // -------------------- PTT ------------------------
-	// In radio mode (FM/AM via BK1080/SI4732), ignore the PTT GPIO completely.
-	// This prevents any accidental TX entry from PTT glitches/bounce while listening.
-#ifdef ENABLE_FMRADIO
-	const bool ignore_ptt_gpio = gFmRadioMode;
-#else
-	const bool ignore_ptt_gpio = false;
-#endif
-
-	if (ignore_ptt_gpio) {
-		gPttDebounceCounter = 0;
-		gPttIsPressed       = false;
-		gPttWasPressed      = false;
-	}
-	else if (gPttIsPressed)
+	if (gPttIsPressed)
 	{
 		if (GPIO_CheckBit(&GPIOC->DATA, GPIOC_PIN_PTT) || SerialConfigInProgress())
 		{	// PTT released or serial comms config in progress
@@ -1076,16 +1058,10 @@ static void CheckKeys(void)
 		return;
 	}
 
-	/* Radio 下 F 键长按判定时间延长一倍（400ms -> 800ms），其它键仍用 key_repeat_delay_10ms */
-	uint16_t hold_threshold_10ms = key_repeat_delay_10ms;
-#ifdef ENABLE_FMRADIO
-	if (gScreenToDisplay == DISPLAY_FM && Key == KEY_F)
-		hold_threshold_10ms = key_repeat_delay_10ms * 2;
-#endif
-	if (gDebounceCounter < hold_threshold_10ms || Key == KEY_INVALID) // the button is not held long enough for repeat yet, or not really pressed
+	if (gDebounceCounter < key_repeat_delay_10ms || Key == KEY_INVALID) // the button is not held long enough for repeat yet, or not really pressed
 		return;
 
-	if (gDebounceCounter == hold_threshold_10ms) //initial key repeat with longer delay
+	if (gDebounceCounter == key_repeat_delay_10ms) //initial key repeat with longer delay
 	{
 		if (Key != KEY_PTT)
 		{
@@ -1121,11 +1097,7 @@ void APP_TimeSlice10ms(void)
 #endif
 
 #ifdef ENABLE_AM_FIX
-#ifdef ENABLE_FMRADIO
-	if (!gFmRadioMode && gRxVfo->Modulation == MODULATION_AM) {
-#else
 	if (gRxVfo->Modulation == MODULATION_AM) {
-#endif
 		AM_fix_10ms(gEeprom.RX_VFO);
 	}
 #endif
@@ -1141,7 +1113,7 @@ void APP_TimeSlice10ms(void)
 	if (gReducedService)
 		return;
 
-	if (!gFmRadioMode && (gCurrentFunction != FUNCTION_POWER_SAVE || !gRxIdleMode))
+	if (gCurrentFunction != FUNCTION_POWER_SAVE || !gRxIdleMode)
 		CheckRadioInterrupts();
 
 	if (gCurrentFunction == FUNCTION_TRANSMIT)
