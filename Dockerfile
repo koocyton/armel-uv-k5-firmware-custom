@@ -1,4 +1,6 @@
-FROM --platform=amd64 archlinux:latest
+# syntax=docker/dockerfile:1
+# Optional: docker build --platform linux/amd64 -t uvk5 .
+FROM --platform=$BUILDPLATFORM archlinux:latest
 RUN pacman -Syyu base-devel --noconfirm
 RUN pacman -Syyu arm-none-eabi-gcc --noconfirm
 RUN pacman -Syyu arm-none-eabi-newlib --noconfirm
