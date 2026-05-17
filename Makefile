@@ -5,10 +5,12 @@
 
 # ---- STOCK QUANSHENG FEATURES ----
 ENABLE_FMRADIO                  ?= 0
-# Si4732 (FM/AM/SSB) 收音机：需 ENABLE_FMRADIO=1；0 时使用 BK1080
+# Si4732 (FM/AM/SSB): requires ENABLE_FMRADIO=1; use BK1080 driver when 0
 ENABLE_SI4732                   ?= 0
 ENABLE_FM_SI4732_AUDIO_PATH_INVERTED ?= 0
 ENABLE_SI4732_AM_USE_FMI        ?= 0
+# FM de-emphasis: 0=50µs (CN/EU/JP), 1=75µs (Americas)
+ENABLE_SI4732_FM_DEEMPH_75      ?= 0
 ENABLE_UART                     ?= 1
 ENABLE_AIRCOPY                  ?= 0
 ENABLE_NOAA                     ?= 0
@@ -44,8 +46,6 @@ ENABLE_REDUCE_LOW_MID_TX_POWER  ?= 0
 ENABLE_BYP_RAW_DEMODULATORS     ?= 0
 ENABLE_BLMIN_TMP_OFF            ?= 0
 ENABLE_SCAN_RANGES              ?= 1
-# F + 4：进入信道扫描（SCANNER）；关掉可省少量 Flash
-ENABLE_F_PLUS_4_SCANNER         ?= 1
 
 # ---- CONTRIB MODS ----
 
@@ -347,6 +347,9 @@ endif
 ifeq ($(ENABLE_SI4732_AM_USE_FMI),1)
 	CFLAGS += -DENABLE_SI4732_AM_USE_FMI
 endif
+ifeq ($(ENABLE_SI4732_FM_DEEMPH_75),1)
+	CFLAGS += -DSI47XX_FM_DEEMPH_75
+endif
 ifeq ($(ENABLE_UART),1)
 	CFLAGS += -DENABLE_UART
 endif
@@ -521,9 +524,6 @@ ifeq ($(ENABLE_FEAT_F4HWN_CA),1)
 endif
 ifeq ($(ENABLE_FEAT_F4HWN_DEBUG),1)
 	CFLAGS  += -DENABLE_FEAT_F4HWN_DEBUG
-endif
-ifeq ($(ENABLE_F_PLUS_4_SCANNER),1)
-	CFLAGS  += -DENABLE_F_PLUS_4_SCANNER
 endif
 ifeq ($(ENABLE_EXTRA_UART_CMD),1)
 	CFLAGS  += -DENABLE_EXTRA_UART_CMD

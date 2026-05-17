@@ -18,7 +18,7 @@
 
 #include "app/chFrScanner.h"
 #ifdef ENABLE_FMRADIO
-#include "app/fm.h"
+    #include "app/fm.h"
 #endif
 #include "app/scanner.h"
 #include "bitmaps.h"

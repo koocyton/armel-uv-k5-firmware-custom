@@ -24,6 +24,7 @@ void EEPROM_WriteBuffer(uint16_t Address, const void *pBuffer);
 
 #if defined(ENABLE_SI4732) && defined(ENABLE_FMRADIO)
 void EEPROM_ReadBuffer32(uint32_t Address, void *pBuffer, uint16_t Size);
+void EEPROM_WriteBuffer32(uint32_t Address, const void *pBuffer);
 #endif
 
 #endif

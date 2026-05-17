@@ -22,11 +22,3 @@ WORKDIR /app
 
 # Copy sources into the image (the script mounts the repo and runs builds)
 COPY . .
-
-# Strip any build products that slipped past .dockerignore (host incremental builds
-# must not poison LTO / conditional EEPROM layout).
-RUN find /app \( -name '*.o' -o -name '*.d' \) -delete 2>/dev/null || true \
-    && find /app -maxdepth 1 -type f \( \
-         -name '*.bin' -o -name '*.packed.bin' -o -name 'f4hwn' -o -name 'firmware' \
-         -o -name 'f4hwn.*' \
-       \) -delete 2>/dev/null || true

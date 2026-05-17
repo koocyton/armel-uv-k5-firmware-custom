@@ -65,8 +65,6 @@ State currentState = SPECTRUM, previousState = SPECTRUM;
 PeakInfo peak;
 ScanInfo scanInfo;
 KeyboardState kbd = {KEY_INVALID, KEY_INVALID, 0};
-/* 频谱下按 5 进入频率输入后，若仍按住，counter 会再达 16 被当成第一位数字 5 */
-static bool gFreqInputAwaitKeyRelease;
 
 #ifdef ENABLE_SCAN_RANGES
 static uint16_t blacklistFreqs[15];
@@ -293,8 +291,6 @@ void SetState(State state)
 {
     previousState = currentState;
     currentState = state;
-    if (state != FREQ_INPUT)
-        gFreqInputAwaitKeyRelease = false;
     redrawScreen = true;
     redrawStatus = true;
 }
@@ -470,13 +466,11 @@ uint8_t GetBWRegValueForScan()
 
 uint16_t GetRssi()
 {
-    /* Reg 0x63 glitch counter can sit at 255 while synthesizer settles; unbounded
-     * wait makes spectrum sweep stall badly. Cap waits (~1.5 ms worst case). */
-    unsigned glitch_wait = 0;
-    while ((BK4819_ReadRegister(0x63) & 0xFF) >= 255 && glitch_wait < 15)
+    // SYSTICK_DelayUs(800);
+    // testing autodelay based on Glitch value
+    while ((BK4819_ReadRegister(0x63) & 0b11111111) >= 255)
     {
         SYSTICK_DelayUs(100);
-        glitch_wait++;
     }
     uint16_t rssi = BK4819_GetRSSI();
 #ifdef ENABLE_AM_FIX
@@ -820,10 +814,8 @@ static void ResetFreqInput()
     tempFreq = 0;
     for (int i = 0; i < 10; ++i)
     {
-        /* 大字库中 '-' 易被看成 5，用下划线作空位 */
-        freqInputString[i] = '_';
+        freqInputString[i] = '-';
     }
-    freqInputString[10] = '\0';
 }
 
 static void FreqInput()
@@ -832,7 +824,6 @@ static void FreqInput()
     freqInputDotIndex = 0;
     ResetFreqInput();
     SetState(FREQ_INPUT);
-    gFreqInputAwaitKeyRelease = true;
 }
 
 static void UpdateFreqInput(KEY_Code_t key)
@@ -849,7 +840,7 @@ static void UpdateFreqInput(KEY_Code_t key)
         }
         freqInputDotIndex = freqInputIndex;
     }
-    else if (key == KEY_EXIT)
+    if (key == KEY_EXIT)
     {
         freqInputIndex--;
         if (freqInputDotIndex == freqInputIndex)
@@ -865,24 +856,19 @@ static void UpdateFreqInput(KEY_Code_t key)
     uint8_t dotIndex =
         freqInputDotIndex == 0 ? freqInputIndex : freqInputDotIndex;
 
-    int out = 0;
-    for (int i = 0; i < (int)freqInputDotIndex && i < freqInputIndex && out < 10; ++i)
+    KEY_Code_t digitKey;
+    for (int i = 0; i < 10; ++i)
     {
-        freqInputString[out++] = (char)('0' + (freqInputArr[i] - KEY_0));
+        if (i < freqInputIndex)
+        {
+            digitKey = freqInputArr[i];
+            freqInputString[i] = digitKey <= KEY_9 ? '0' + digitKey - KEY_0 : '.';
+        }
+        else
+        {
+            freqInputString[i] = '-';
+        }
     }
-    if (freqInputDotIndex > 0 && freqInputDotIndex <= freqInputIndex && out < 10)
-    {
-        freqInputString[out++] = '.';
-    }
-    for (int i = (int)freqInputDotIndex; i < freqInputIndex && out < 10; ++i)
-    {
-        freqInputString[out++] = (char)('0' + (freqInputArr[i] - KEY_0));
-    }
-    while (out < 10)
-    {
-        freqInputString[out++] = '_';
-    }
-    freqInputString[10] = '\0';
 
     uint32_t base = 100000; // 1MHz in BK units
     for (int i = dotIndex - 1; i >= 0; --i)
@@ -894,8 +880,7 @@ static void UpdateFreqInput(KEY_Code_t key)
     base = 10000; // 0.1MHz in BK units
     if (dotIndex < freqInputIndex)
     {
-        /* 小数点前一位仍在 dotIndex-1；小数数字从 dotIndex 起（不再向数组写入 KEY_STAR 占位） */
-        for (int i = dotIndex; i < freqInputIndex; ++i)
+        for (int i = dotIndex + 1; i < freqInputIndex; ++i)
         {
             tempFreq += (freqInputArr[i] - KEY_0) * base;
             base /= 10;
@@ -1552,23 +1537,14 @@ bool HandleUserInput()
             kbd.counter++;
         else
             kbd.counter -= 3;
-        /* Do not block the sweep with DelayMs(20) every tick — it makes spectrum
-         * stutter severely while a key is held (each bin waits ~20 ms). */
-        SYSTICK_DelayUs(400);
+        SYSTEM_DelayMs(20);
     }
     else
     {
         kbd.counter = 0;
     }
 
-    if (gFreqInputAwaitKeyRelease) {
-        if (kbd.current == KEY_INVALID)
-            gFreqInputAwaitKeyRelease = false;
-        else
-            kbd.counter = 0;
-    }
-
-    if (kbd.counter == 3 || (kbd.counter == 16 && currentState != FREQ_INPUT))
+    if (kbd.counter == 3 || kbd.counter == 16)
     {
         switch (currentState)
         {

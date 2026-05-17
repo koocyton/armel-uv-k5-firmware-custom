@@ -102,16 +102,22 @@ void UI_PrintStringInverted(const char *pString, uint8_t Start, uint8_t End, uin
 {
     size_t i;
     size_t Length = strlen(pString);
+
     if (End > Start)
         Start += (((End - Start) - (Length * Width)) + 1) / 2;
-    for (i = 0; i < Length; i++) {
+
+    for (i = 0; i < Length; i++)
+    {
         const unsigned int ofs = (unsigned int)Start + (i * Width);
-        if (pString[i] > ' ' && pString[i] < 127) {
+        if (pString[i] > ' ' && pString[i] < 127)
+        {
             const unsigned int index = pString[i] - ' ' - 1;
-            for (unsigned int j = 0; j < 7; j++)
-                gFrameBuffer[Line + 0][ofs + j] &= (uint8_t)~gFontBig[index][j];
-            for (unsigned int j = 0; j < 7; j++)
-                gFrameBuffer[Line + 1][ofs + j] &= (uint8_t)~gFontBig[index][7 + j];
+            unsigned int       j;
+            for (j = 0; j < 7; j++)
+            {
+                gFrameBuffer[Line + 0][ofs + j] ^= gFontBig[index][j];
+                gFrameBuffer[Line + 1][ofs + j] ^= gFontBig[index][j + 7];
+            }
         }
     }
 }
@@ -343,22 +349,38 @@ void UI_DrawRectangleBuffer(uint8_t (*buffer)[128], int16_t x1, int16_t y1, int1
 
 void UI_FillRectangleBuffer(uint8_t (*buffer)[128], int16_t x1, int16_t y1, int16_t x2, int16_t y2, bool black)
 {
-    int16_t x, y;
-    for (y = y1; y <= y2; y++)
-        for (x = x1; x <= x2; x++)
+    sort(&x1, &x2);
+    sort(&y1, &y2);
+    for (int16_t y = y1; y <= y2; y++)
+    {
+        if (y < 0 || y >= (FRAME_LINES * 8))
+            continue;
+        for (int16_t x = x1; x <= x2; x++)
+        {
+            if (x < 0 || x >= LCD_WIDTH)
+                continue;
             UI_DrawPixelBuffer(buffer, (uint8_t)x, (uint8_t)y, black);
+        }
+    }
 }
 
 void UI_InvertRectangleBuffer(uint8_t (*buffer)[128], int16_t x1, int16_t y1, int16_t x2, int16_t y2)
 {
-    int16_t x, y;
-    for (y = y1; y <= y2; y++)
-        for (x = x1; x <= x2; x++) {
-            const uint8_t py = (uint8_t)y;
-            const uint8_t px = (uint8_t)x;
-            const uint8_t pattern = 1 << (py % 8);
-            buffer[py / 8][px] ^= pattern;
+    sort(&x1, &x2);
+    sort(&y1, &y2);
+    for (int16_t y = y1; y <= y2; y++)
+    {
+        if (y < 0 || y >= (FRAME_LINES * 8))
+            continue;
+        const uint8_t pat = (uint8_t)(1u << (y % 8));
+        const uint8_t row = (uint8_t)(y / 8);
+        for (int16_t x = x1; x <= x2; x++)
+        {
+            if (x < 0 || x >= LCD_WIDTH)
+                continue;
+            buffer[row][(uint8_t)x] ^= pat;
         }
+    }
 }
 
 

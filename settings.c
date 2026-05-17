@@ -561,12 +561,26 @@ void SETTINGS_SaveFM(void)
             uint8_t __raw[8];
         } __attribute__((packed)) fmCfg;
 
+#ifdef ENABLE_FM_SI4732
+        /* 读改写整块 0x0E88–0x0E8F：保留 Si4732 使用的 32-bit FM 频率(Hz)，避免被 memset 覆盖 */
+        EEPROM_ReadBuffer(0x0E88, fmCfg.__raw, 8);
+#else
         memset(fmCfg.__raw, 0xFF, sizeof(fmCfg.__raw));
+#endif
         fmCfg.selChn   = gEeprom.FM_SelectedChannel;
         fmCfg.selFreq  = gEeprom.FM_SelectedFrequency;
         fmCfg.isMrMode = gEeprom.FM_IsMrMode;
         fmCfg.band     = gEeprom.FM_Band;
         //fmCfg.space    = gEeprom.FM_Space;
+#ifdef ENABLE_FM_SI4732
+        {
+            uint32_t hz = (uint32_t)gEeprom.FM_SelectedFrequency * 100000U;
+            fmCfg.__raw[4] = (uint8_t)(hz & 0xFFU);
+            fmCfg.__raw[5] = (uint8_t)((hz >> 8) & 0xFFU);
+            fmCfg.__raw[6] = (uint8_t)((hz >> 16) & 0xFFU);
+            fmCfg.__raw[7] = (uint8_t)((hz >> 24) & 0xFFU);
+        }
+#endif
         EEPROM_WriteBuffer(0x0E88, fmCfg.__raw);
 
         for (unsigned i = 0; i < 5; i++)

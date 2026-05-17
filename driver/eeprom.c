@@ -85,4 +85,31 @@ void EEPROM_ReadBuffer32(uint32_t Address, void *pBuffer, uint16_t Size)
         offset += chunk;
     }
 }
+
+void EEPROM_WriteBuffer32(uint32_t Address, const void *pBuffer)
+{
+    const uint8_t   *src  = (const uint8_t *)pBuffer;
+    uint8_t          buffer[8];
+
+    if (src == NULL || Address + 8U > 262144U)
+        return;
+
+    EEPROM_ReadBuffer32(Address, buffer, 8);
+    if (memcmp(src, buffer, 8) == 0)
+        return;
+
+    {
+        uint8_t  dev    = (uint8_t)(0xA0U | ((Address / 65536U) << 1));
+        uint16_t addr16 = (uint16_t)(Address & 0xFFFFU);
+
+        I2C_Start();
+        I2C_Write(dev);
+        I2C_Write((uint8_t)(addr16 >> 8));
+        I2C_Write((uint8_t)(addr16 & 0xFF));
+        I2C_WriteBuffer(src, 8);
+        I2C_Stop();
+    }
+
+    SYSTEM_DelayMs(8);
+}
 #endif

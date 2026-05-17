@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Si4732 单边带 Patch 写入工具（K5 UART）</title>
+  <style>
+    :root {
+      font-family: system-ui, sans-serif;
+      line-height: 1.45;
+      color: #e8e8ec;
+      background: #12141a;
+    }
+    body {
+      max-width: 52rem;
+      margin: 0 auto;
+      padding: 1.25rem;
+    }
+    h1 { font-size: 1.25rem; margin-top: 0; }
+    h2 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
+    .warn {
+      border: 1px solid #6b4f1e;
+      background: #1e1810;
+      padding: 0.75rem 1rem;
+      border-radius: 6px;
+      margin: 0.75rem 0;
+    }
+    .row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 0.5rem 0; }
+    label { min-width: 8rem; }
+    input[type="text"], input[type="number"], input[type="file"] {
+      padding: 0.35rem 0.5rem;
+      border-radius: 4px;
+      border: 1px solid #3a3f4d;
+      background: #1a1d26;
+      color: inherit;
+    }
+    button {
+      padding: 0.45rem 0.85rem;
+      border-radius: 6px;
+      border: 1px solid #4a5568;
+      background: #2d3748;
+      color: #e8e8ec;
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    button.primary { background: #2b6cb0; border-color: #3182ce; }
+    #log {
+      font-family: ui-monospace, monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      background: #0b0d12;
+      border: 1px solid #2d3344;
+      border-radius: 6px;
+      padding: 0.75rem;
+      max-height: 16rem;
+      overflow: auto;
+      margin-top: 0.5rem;
+    }
+    code { color: #9ecbff; }
+  </style>
+</head>
+<body>
+  <h1>Si4732 单边带 Patch 写入</h1>
+  <p>通过 USB 串口使用与本机 CPS 相同的协议（38400、XOR、CRC16）向 <strong>256KB EEPROM 末尾</strong>写入 SSB patch。固件需开启 <code>ENABLE_SI4732</code> 与 <code>ENABLE_UART</code>，并支持命令 <code>0x05F2</code> / <code>0x05F0</code>。</p>
+
+  <div class="warn">
+    <strong>风险：</strong>写入错误的文件或断电可能导致收音机配置损坏。建议先用 CPS 完整备份 EEPROM；写入前退出 CPS、关掉可能占用串口的软件。若设备设有写频密码，需先解锁。<br />
+    <strong>提示：</strong>若「建立会话」无应答，请确认固件编译时 <code>ENABLE_UART=1</code>；Web Serial 在 Chrome 下建议用 <code>http://localhost</code> 打开本页（部分环境对 <code>file://</code> 有限制）。
+  </div>
+
+  <h2>连接</h2>
+  <div class="row">
+    <button type="button" id="btnConnect" class="primary">选择串口并连接</button>
+    <button type="button" id="btnDisconnect" disabled>断开</button>
+    <span id="connState">未连接</span>
+  </div>
+
+  <h2>参数</h2>
+  <div class="row">
+    <label for="patchBase">Patch 起始地址（十进制）</label>
+    <input type="number" id="patchBase" value="246312" min="0" max="262080" />
+    <span>（默认 <code>262144 − 15832 = 0x3C228</code>，与本仓库 <code>SI473X_PATCH_EEPROM</code> 一致）</span>
+  </div>
+  <div class="row">
+    <label for="patchSize">Patch 长度（字节）</label>
+    <input type="number" id="patchSize" value="15832" min="8" max="15832" />
+  </div>
+  <div class="row">
+    <label for="patchFile">Patch 文件</label>
+    <input type="file" id="patchFile" accept=".bin,.raw,*/*" />
+  </div>
+
+  <h2>操作</h2>
+  <div class="row">
+    <button type="button" id="btnSession" disabled>1. 建立会话 (0x0514)</button>
+    <button type="button" id="btnWrite" disabled>2. 写入 Patch</button>
+    <button type="button" id="btnVerify" disabled>3. 读回校验（可选）</button>
+  </div>
+
+  <h2>日志</h2>
+  <div id="log"></div>
+
+  <script>
+(() => {
+  const BAUD = 38400;
+  const XOR_KEY = new Uint8Array([
+    0x16,0x6c,0x14,0xe6,0x2e,0x91,0x0d,0x40,0x21,0x35,0xd5,0x40,0x13,0x03,0xe9,0x80
+  ]);
+  const CRC16_TAB = new Uint16Array([
+    0,4129,8258,12387,16516,20645,24774,28903,33032,37161,41290,45419,49548,53677,57806,61935,4657,528,12915,8786,21173,17044,29431,25302,
+    37689,33560,45947,41818,54205,50076,62463,58334,9314,13379,1056,5121,25830,29895,17572,21637,42346,46411,34088,38153,58862,62927,50604,54669,13907,
+    9842,5649,1584,30423,26358,22165,18100,46939,42874,38681,34616,63455,59390,55197,51132,18628,22757,26758,30887,2112,6241,10242,14371,51660,55789,
+    59790,63919,35144,39273,43274,47403,23285,19156,31415,27286,6769,2640,14899,10770,56317,52188,64447,60318,39801,35672,47931,43802,27814,31879,
+    19684,23749,11298,15363,3168,7233,60846,64911,52716,56781,44330,48395,36200,40265,32407,28342,24277,20212,15891,11826,7761,3696,65439,61374,
+    57309,53244,48923,44858,40793,36728,37256,33193,45514,41451,53516,49453,61774,57711,4224,161,12482,8419,20484,16421,28742,24679,33721,37784,41979,
+    46042,49981,54044,58239,62302,689,4752,8947,13010,16949,21012,25207,29270,46570,42443,38312,34185,62830,58703,54572,50445,13538,9411,5280,1153,29798,
+    25671,21540,17413,42971,47098,34713,38840,59231,63358,50973,55100,9939,14066,1681,5808,26199,30326,17941,22068,55628,51565,63758,59695,39368,
+    35305,47498,43435,22596,18533,30726,26663,6336,2273,14466,10403,52093,56156,60223,64286,35833,39896,43963,48026,19061,23124,27191,31254,2801,
+    6864,10931,14994,64814,60687,56684,52557,48554,44427,40424,36297,31782,27655,23652,19525,15522,11395,7392,3265,61215,65342,53085,57212,44955,
+    49082,36825,40952,28183,32310,20053,24180,11923,16050,3793,7920
+  ]);
+
+  function crc16Ccitt(data) {
+    let c = 0;
+    for (let i = 0; i < data.length; i++) {
+      const out = CRC16_TAB[((c >> 8) ^ data[i]) & 255];
+      c = (out ^ (c << 8)) & 0xffff;
+    }
+    return c;
+  }
+
+  function xorPayload(buf) {
+    const o = new Uint8Array(buf.length);
+    for (let i = 0; i < buf.length; i++) o[i] = buf[i] ^ XOR_KEY[i & 15];
+    return o;
+  }
+
+  function u32le(v) {
+    return new Uint8Array([v & 0xff, (v >> 8) & 0xff, (v >> 16) & 0xff, (v >> 24) & 0xff]);
+  }
+
+  function u16le(v) {
+    return new Uint8Array([v & 0xff, (v >> 8) & 0xff]);
+  }
+
+  function concat(...parts) {
+    let n = 0;
+    for (const p of parts) n += p.length;
+    const o = new Uint8Array(n);
+    let off = 0;
+    for (const p of parts) { o.set(p, off); off += p.length; }
+    return o;
+  }
+
+  /** @param {Uint8Array} inner 不含 CRC：cmd_id + len + body + 4 字节时间戳 */
+  function buildFrame(inner) {
+    const crc = crc16Ccitt(inner);
+    const innerFull = concat(inner, new Uint8Array([crc & 0xff, crc >> 8]));
+    const xored = xorPayload(innerFull);
+    const outerSize = innerFull.length - 2;
+    return concat(
+      new Uint8Array([0xab, 0xcd]),
+      u16le(outerSize),
+      xored,
+      new Uint8Array([0xdc, 0xba])
+    );
+  }
+
+  function log(msg) {
+    const el = document.getElementById("log");
+    const t = new Date().toISOString().slice(11, 19);
+    el.textContent += `[${t}] ${msg}\n`;
+    el.scrollTop = el.scrollHeight;
+  }
+
+  const elConn = document.getElementById("connState");
+  const btnConnect = document.getElementById("btnConnect");
+  const btnDisconnect = document.getElementById("btnDisconnect");
+  const btnSession = document.getElementById("btnSession");
+  const btnWrite = document.getElementById("btnWrite");
+  const btnVerify = document.getElementById("btnVerify");
+
+  let port = null;
+  let writer = null;
+  let reader = null;
+  /** @type {ReadableStreamDefaultReader<Uint8Array>|null} */
+  let readLoopRunning = null;
+  let rxBuf = new Uint8Array(0);
+  let sessionTs = 0;
+
+  function setConnected(connected) {
+    elConn.textContent = connected ? "已连接" : "未连接";
+    btnConnect.disabled = connected;
+    btnDisconnect.disabled = !connected;
+    btnSession.disabled = !connected;
+    btnWrite.disabled = !connected || sessionTs === 0;
+    btnVerify.disabled = !connected || sessionTs === 0;
+  }
+
+  async function readLoop() {
+    if (!reader) return;
+    try {
+      while (port && reader) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        if (value && value.length) {
+          rxBuf = concat(rxBuf, value);
+        }
+      }
+    } catch (e) {
+      log("读串口异常: " + e);
+    }
+  }
+
+  /**
+   * 电台 → 主机：AB CD | Size | XOR(Size 字节) | Footer(4，末两字节 DC BA)
+   * （与 app/uart.c 中 SendReply 一致；不同于主机命令帧的 XOR(Size+2)+DCBA。）
+   */
+  function tryTakeOneFrame() {
+    for (let i = 0; i + 8 <= rxBuf.length; i++) {
+      if (rxBuf[i] !== 0xab || rxBuf[i + 1] !== 0xcd) continue;
+      if (i > 0) {
+        rxBuf = rxBuf.subarray(i);
+        i = 0;
+      }
+      const sizeField = rxBuf[2] | (rxBuf[3] << 8);
+      const need = 4 + sizeField + 4;
+      if (rxBuf.length < need) return null;
+      if (rxBuf[4 + sizeField + 2] !== 0xdc || rxBuf[4 + sizeField + 3] !== 0xba) {
+        rxBuf = rxBuf.subarray(1);
+        return tryTakeOneFrame();
+      }
+      const plain = xorPayload(rxBuf.subarray(4, 4 + sizeField));
+      rxBuf = rxBuf.subarray(need);
+      return plain;
+    }
+    if (rxBuf.length > 4096) rxBuf = rxBuf.subarray(rxBuf.length - 2048);
+    return null;
+  }
+
+  async function waitFrame(timeoutMs) {
+    const t0 = Date.now();
+    while (Date.now() - t0 < timeoutMs) {
+      const f = tryTakeOneFrame();
+      if (f) return f;
+      await new Promise(r => setTimeout(r, 15));
+    }
+    return null;
+  }
+
+  async function openPort() {
+    if (!("serial" in navigator)) {
+      alert("当前浏览器不支持 Web Serial。请使用桌面版 Chrome / Edge。");
+      return;
+    }
+    port = await navigator.serial.requestPort();
+    await port.open({ baudRate: BAUD, dataBits: 8, stopBits: 1, parity: "none" });
+    writer = port.writable.getWriter();
+    reader = port.readable.getReader();
+    readLoopRunning = readLoop();
+    setConnected(true);
+    sessionTs = 0;
+    btnWrite.disabled = true;
+    btnVerify.disabled = true;
+    log(`串口已打开 ${BAUD} 8N1`);
+  }
+
+  async function closePort() {
+    sessionTs = 0;
+    try {
+      if (reader) {
+        await reader.cancel().catch(() => {});
+        reader.releaseLock();
+      }
+    } catch (_) {}
+    reader = null;
+    try {
+      if (writer) {
+        writer.releaseLock();
+      }
+    } catch (_) {}
+    writer = null;
+    if (port) await port.close().catch(() => {});
+    port = null;
+    rxBuf = new Uint8Array(0);
+    setConnected(false);
+    log("串口已关闭");
+  }
+
+  async function sendCmd(inner) {
+    if (!writer) throw new Error("未连接");
+    const frame = buildFrame(inner);
+    await writer.write(frame);
+  }
+
+  /** 会话：0x0514，body 空，仅时间戳 */
+  async function cmd0514(ts) {
+    const inner = concat(
+      u16le(0x0514),
+      u16le(4),
+      u32le(ts >>> 0)
+    );
+    await sendCmd(inner);
+    const reply = await waitFrame(2500);
+    if (!reply) throw new Error("无应答 0x0515");
+    const rid = reply[0] | (reply[1] << 8);
+    if (rid !== 0x0515) throw new Error("应答 ID 非 0x0515: 0x" + rid.toString(16));
+    if (reply.length >= 4 + 16) {
+      const dec = new TextDecoder();
+      const ver = dec.decode(reply.subarray(4, 4 + 16));
+      log("固件: " + ver.replace(/\0.*$/, ""));
+    }
+    return true;
+  }
+
+  /** 写扩展 EEPROM 0x05F2 */
+  async function cmd05F2(addr, data, ts) {
+    const n = data.length;
+    const inner = concat(
+      u16le(0x05f2),
+      u16le(12 + n),
+      u32le(addr >>> 0),
+      new Uint8Array([n, 0, 0, 0]),
+      u32le(ts >>> 0),
+      data
+    );
+    await sendCmd(inner);
+    const reply = await waitFrame(3000);
+    if (!reply) throw new Error("无应答 0x05F3");
+    const rid = reply[0] | (reply[1] << 8);
+    if (rid !== 0x05f3) throw new Error("应答非 0x05F3: 0x" + rid.toString(16));
+    const ackAddr = reply[4] | (reply[5] << 8) | (reply[6] << 16) | (reply[7] << 24);
+    if ((ackAddr >>> 0) !== (addr >>> 0)) {
+      throw new Error("应答地址不匹配");
+    }
+  }
+
+  /** 读扩展 EEPROM 0x05F0 */
+  async function cmd05F0(addr, size, ts) {
+    const inner = concat(
+      u16le(0x05f0),
+      u16le(12),
+      u32le(addr >>> 0),
+      new Uint8Array([size, 0, 0, 0]),
+      u32le(ts >>> 0)
+    );
+    await sendCmd(inner);
+    const reply = await waitFrame(3000);
+    if (!reply) throw new Error("无应答 0x05F1");
+    const rid = reply[0] | (reply[1] << 8);
+    if (rid !== 0x05f1) throw new Error("应答非 0x05F1");
+    const dsize = reply[8];
+    if (reply.length < 12 + dsize + 2) throw new Error("0x05F1 应答过短");
+    const data = reply.subarray(12, 12 + dsize);
+    return data;
+  }
+
+  btnConnect.onclick = () => openPort().catch(e => { log(String(e)); alert(String(e)); });
+  btnDisconnect.onclick = () => closePort().catch(e => log(String(e)));
+
+  btnSession.onclick = async () => {
+    try {
+      sessionTs = (Date.now() / 1000) >>> 0;
+      if (sessionTs === 0) sessionTs = 0x64554c9f;
+      await cmd0514(sessionTs);
+      log("会话已建立 Timestamp=0x" + sessionTs.toString(16));
+      btnWrite.disabled = false;
+      btnVerify.disabled = false;
+    } catch (e) {
+      log("会话失败: " + e);
+      alert(String(e));
+    }
+  };
+
+  btnWrite.onclick = async () => {
+    const base = parseInt(document.getElementById("patchBase").value, 10);
+    const expectSize = parseInt(document.getElementById("patchSize").value, 10);
+    const f = document.getElementById("patchFile").files[0];
+    if (!f) {
+      alert("请选择 patch 文件");
+      return;
+    }
+    if (sessionTs === 0) {
+      alert("请先建立会话");
+      return;
+    }
+    const buf = new Uint8Array(await f.arrayBuffer());
+    if (buf.length !== expectSize) {
+      if (!confirm(`文件大小 ${buf.length} 与设定长度 ${expectSize} 不一致，是否仍继续？`)) return;
+    }
+    if (buf.length % 8 !== 0) {
+      alert("Patch 长度必须是 8 的倍数（本机 05F2 按 8 字节页写入）");
+      return;
+    }
+    if (base + buf.length > 262144) {
+      alert("超出 256KB EEPROM");
+      return;
+    }
+    const CHUNK = 120;
+    try {
+      let off = 0;
+      let nchunk = 0;
+      while (off < buf.length) {
+        let len = Math.min(CHUNK, buf.length - off);
+        len -= len % 8;
+        if (len === 0) throw new Error("剩余数据不足 8 字节，协议无法写入");
+        const chunk = buf.subarray(off, off + len);
+        await cmd05F2(base + off, chunk, sessionTs);
+        off += len;
+        nchunk++;
+        if (nchunk % 20 === 0 || off >= buf.length) {
+          log(`写入进度 ${off} / ${buf.length}`);
+        }
+      }
+      log("写入完成。");
+    } catch (e) {
+      log("写入失败: " + e);
+      alert(String(e));
+    }
+  };
+
+  btnVerify.onclick = async () => {
+    const base = parseInt(document.getElementById("patchBase").value, 10);
+    const expectSize = parseInt(document.getElementById("patchSize").value, 10);
+    const f = document.getElementById("patchFile").files[0];
+    if (!f) {
+      alert("请选择同一 patch 文件以比对");
+      return;
+    }
+    if (sessionTs === 0) {
+      alert("请先建立会话");
+      return;
+    }
+    const orig = new Uint8Array(await f.arrayBuffer());
+    const checkLen = Math.min(orig.length, expectSize);
+    try {
+      let off = 0;
+      while (off < checkLen) {
+        const sz = Math.min(128, checkLen - off);
+        const rd = await cmd05F0(base + off, sz, sessionTs);
+        for (let i = 0; i < sz; i++) {
+          if (rd[i] !== orig[off + i]) {
+            throw new Error(`校验失败 @${base + off + i} 期望=${orig[off + i]} 读到=${rd[i]}`);
+          }
+        }
+        off += sz;
+      }
+      log("读回校验通过。");
+    } catch (e) {
+      log("校验失败: " + e);
+      alert(String(e));
+    }
+  };
+
+  setConnected(false);
+})();
+  </script>
+</body>
+</html>

@@ -492,7 +492,7 @@ static void Key_FUNC(KEY_Code_t Key, uint8_t state)
 				break;
 
 			case KEY_STAR:
-				// 禁用 FM 搜索/扫描：仅在扫描中允许“停止”，否则提示不可用
+				/* 禁用 FM 搜索/扫描：仅在扫描中允许“停止”，否则提示不可用 */
 				if (gFM_ScanState != FM_SCAN_OFF) {
 					FM_PlayAndUpdate();
 				} else {

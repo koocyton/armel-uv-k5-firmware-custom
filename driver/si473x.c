@@ -64,6 +64,63 @@ static void sendProperty(uint16_t prop, uint16_t parameter) {
   SYSTEM_DelayMs(2);
 }
 
+#define FM_TUNE_STC_MS   80U
+
+/* AN332 §10: FM/AM_TUNE_FREQ CTS 先于 STC；轮询 STATUS.STCINT */
+static void waitForTuneStc(uint16_t timeoutMs) {
+  for (uint16_t t = 0; t < timeoutMs; t++) {
+    uint8_t st = 0;
+    SI47XX_ReadBuffer(&st, 1);
+    if (st & STATUS_STCINT)
+      return;
+    SYSTEM_DelayMs(1);
+  }
+}
+
+static void ackTuneStc(void) {
+  uint8_t cmd[2];
+  uint8_t respLen;
+
+  if (si4732mode == SI47XX_FM) {
+    cmd[0] = CMD_FM_TUNE_STATUS;
+    respLen = 7;
+  } else if (isAmFamilyStatic()) {
+    cmd[0] = CMD_AM_TUNE_STATUS;
+    respLen = 7;
+  } else {
+    return;
+  }
+  cmd[1] = TUNE_STATUS_ARG1_CLEAR_INT;
+  waitToSend();
+  SI47XX_WriteBuffer(cmd, 2);
+  waitToSend();
+  {
+    uint8_t resp[7];
+    SI47XX_ReadBuffer(resp, respLen);
+  }
+}
+
+/* AN332 §12.2 Table 52：FM 听感 */
+static void SI47XX_ApplyFmAudioProfile(void) {
+#ifndef SI47XX_FM_DEEMPH_75
+  sendProperty(PROP_FM_DEEMPHASIS, FLG_DEEMPH_50); /* 国内广播 50µs */
+#else
+  sendProperty(PROP_FM_DEEMPHASIS, FLG_DEEMPH_75);
+#endif
+  sendProperty(PROP_FM_CHANNEL_FILTER, 0); /* 0=自动信道滤波 */
+  sendProperty(PROP_FM_MAX_TUNE_ERROR, 20); /* AN332：20 kHz 利于 AFC/搜台 */
+  sendProperty(PROP_FM_ANTENNA_INPUT, 0);   /* FMI 耳机/拉杆天线 */
+  sendProperty(PROP_FM_BLEND_RSSI_STEREO_THRESHOLD, 49);
+  sendProperty(PROP_FM_BLEND_RSSI_MONO_THRESHOLD, 30);
+  sendProperty(PROP_FM_BLEND_SNR_STEREO_THRESHOLD, 30);
+  sendProperty(PROP_FM_BLEND_SNR_MONO_THRESHOLD, 14);
+  sendProperty(PROP_FM_SOFT_MUTE_SLOPE, 2);
+  sendProperty(PROP_FM_SOFT_MUTE_MAX_ATTENUATION, 10);
+  sendProperty(PROP_FM_SOFT_MUTE_SNR_THRESHOLD, 6);
+  sendProperty(PROP_FM_HICUT_SNR_HIGH_THRESHOLD, 20);
+  sendProperty(PROP_FM_HICUT_SNR_LOW_THRESHOLD, 12);
+}
+
 void SI47XX_ApplyAmAntennaInput(void) {
   sendProperty(PROP_FM_ANTENNA_INPUT, gAmUseFMI ? 0U : 1U); /* 0=FMI, 1=AMI */
 }
@@ -167,6 +224,7 @@ void SI47XX_FirstPowerUp(uint16_t freq_10k) {
   AUDIO_AudioPathOn();
 #endif
   setVolume(63);
+  SI47XX_ApplyFmAudioProfile();
   SI47XX_SetSeekFmLimits(8750, 10800); /* 87.5–108 MHz */
   enableRDS();
   SI47XX_SetFreq(freq_10k);
@@ -183,17 +241,16 @@ void SI47XX_PowerUp() {
   SI47XX_WriteBuffer(cmd, 3);
   SYSTEM_DelayMs(500);
 
-  AUDIO_AudioPathOn();
+  /* 与 FM_Start / FirstPowerUp 一致，走 Si4732 对应音频开关（含 ENABLE_FM_SI4732_AUDIO_PATH_INVERTED） */
+  AUDIO_AudioPathOn_FM();
   setVolume(63);
 
   if (si4732mode == SI47XX_FM) {
+    SI47XX_ApplyFmAudioProfile();
     enableRDS();
-  } else if (isAmFamilyStatic()) {
-    /* AM / LSB / USB / CW：按当前天线选择设置（长按 9 可切换 FMI/AMI） */
+  } else if (si4732mode == SI47XX_AM) {
     SI47XX_ApplyAmAntennaInput();
-    SI47XX_SetAutomaticGainControl(1, 0);
-    sendProperty(PROP_AM_SOFT_MUTE_MAX_ATTENUATION, 0);
-    sendProperty(PROP_AM_AUTOMATIC_VOLUME_CONTROL_MAX_GAIN, 0x7800);
+    SI47XX_ApplyAmAudioProfile(2); /* 默认 1.2 kHz；FM_ApplyAMOptions 会按 UI 再设 BW/LNA */
     SI47XX_SetSeekAmLimits(500, 30000); /* 500 kHz–30 MHz */
   }
   SI47XX_SetFreq(Read_FreqSaved() / divider);
@@ -235,7 +292,7 @@ static void SI47XX_PatchPowerUp(void) {
   /* AUDIOBW: 0=1.2k 1=2.2k 2=3k 3=4k；收窄带宽降噪，2.2k 兼顾语音与噪声 */
   SI47XX_SsbSetup(1, 2, 0, 1, 0, 1); /* AUDIOBW=2.2kHz, SBCUTFLT=2, AVC=1, DSP_AFCDIS=1 */
 
-  AUDIO_AudioPathOn();
+  AUDIO_AudioPathOn_FM();
   setVolume(63);
   SI47XX_SetFreq(Read_FreqSaved() / divider);
   /* 弱信号时软静音减轻底噪；AVC 最大增益略降减少噪声放大 */
@@ -288,6 +345,7 @@ void SI47XX_SetFreq(uint16_t freq) {
   } else if (SI47XX_IsSSB()) {
     cmd[0] = CMD_AM_TUNE_FREQ;
     size = 6;
+    /* AN332: ARG1 bits — USB=0x80, LSB=0x40 */
     if (si4732mode == SI47XX_USB)
       cmd[1] = 0x80;
     else
@@ -295,6 +353,7 @@ void SI47XX_SetFreq(uint16_t freq) {
     if (freq > 1800)
       cmd[5] = 1;
   } else if (si4732mode == SI47XX_CW) {
+    /* 与 LSB 相同 ARG1；听感差异主要靠界面里约窄的滤波/BFO，若与 LSB 极像属预期 */
     cmd[0] = CMD_AM_TUNE_FREQ;
     size = 6;
     cmd[1] = 0x40; /* LSB for CW */
@@ -305,7 +364,8 @@ void SI47XX_SetFreq(uint16_t freq) {
   waitToSend();
   SI47XX_WriteBuffer(cmd, size);
   siCurrentFreq = freq;
-  SYSTEM_DelayMs(30);
+  waitForTuneStc(FM_TUNE_STC_MS);
+  ackTuneStc();
 }
 
 void SI47XX_SetSeekFmLimits(uint16_t bottom, uint16_t top) {
@@ -345,15 +405,45 @@ void SI47XX_ApplyRxBfo(int16_t hz) {
   sendProperty(PROP_SSB_BFO, (uint16_t)hz);
 }
 
-/* BW index 0..6 -> 0.5,1,1.2,2.2,3,4,5 kHz. AM: FLG_AMCHFLT 6k=0,4k=1,3k=2,2k=3,1k=4,1.8k=5,2.5k=6. SSB: AUDIOBW 4=0.5k,5=1k,0=1.2k,1=2.2k,2=3k,3=4k. */
-static const uint8_t am_bw_amchflt[] = { FLG_AMCHFLT_1KHZ, FLG_AMCHFLT_1KHZ, FLG_AMCHFLT_1KHZ8, FLG_AMCHFLT_2KHZ5, FLG_AMCHFLT_3KHZ, FLG_AMCHFLT_4KHZ, FLG_AMCHFLT_6KHZ };
+/* UI BW index 0..6 标签：0.5, 1.0, 1.2, 2.2, 3.0, 4.0, 5.0 kHz
+ * AM 芯片可选：1 / 1.8 / 2.5 / 3 / 4 / 6 kHz；0.5/1.0 用最窄 1 kHz */
+static const uint8_t am_bw_amchflt[] = {
+    FLG_AMCHFLT_1KHZ,   /* 0 -> 0.5 kHz */
+    FLG_AMCHFLT_1KHZ,   /* 1 -> 1.0 kHz */
+    FLG_AMCHFLT_1KHZ8,  /* 2 -> 1.2 kHz */
+    FLG_AMCHFLT_2KHZ5,  /* 3 -> 2.2 kHz */
+    FLG_AMCHFLT_3KHZ,   /* 4 -> 3.0 kHz */
+    FLG_AMCHFLT_4KHZ,   /* 5 -> 4.0 kHz */
+    FLG_AMCHFLT_6KHZ,   /* 6 -> 5.0 kHz（用最宽 6 kHz） */
+};
 static const uint8_t am_bw_ssb_audiobw[] = { 4, 5, 0, 1, 2, 3, 3 };
+
+#define AM_CHANNEL_FILTER_AMPLFLT  (1U << 8) /* 工频陷波 AMPLFLT=1 */
 
 void SI47XX_SetAMBandwidth(uint8_t index) {
   if (index > 6) index = 6;
   if (si4732mode == SI47XX_AM) {
-    sendProperty(PROP_AM_CHANNEL_FILTER, (uint16_t)am_bw_amchflt[index] | (0U << 8));
+    sendProperty(PROP_AM_CHANNEL_FILTER,
+                 (uint16_t)am_bw_amchflt[index] | AM_CHANNEL_FILTER_AMPLFLT);
   } else if (SI47XX_IsSSB() || si4732mode == SI47XX_CW) {
     SI47XX_SsbSetup(am_bw_ssb_audiobw[index], 2, 0, 1, 0, 1);
   }
+}
+
+void SI47XX_ApplyAmAudioProfile(uint8_t bwIndex) {
+  if (si4732mode != SI47XX_AM)
+    return;
+  if (bwIndex > 6)
+    bwIndex = 6;
+#ifndef SI47XX_FM_DEEMPH_75
+  sendProperty(PROP_AM_DEEMPHASIS, FLG_DEEMPH_50);
+#else
+  sendProperty(PROP_AM_DEEMPHASIS, FLG_DEEMPH_75);
+#endif
+  sendProperty(PROP_AM_SOFT_MUTE_SLOPE, 2);
+  sendProperty(PROP_AM_SOFT_MUTE_MAX_ATTENUATION, 8);
+  sendProperty(PROP_AM_SOFT_MUTE_SNR_THRESHOLD, 8);
+  sendProperty(PROP_AM_AUTOMATIC_VOLUME_CONTROL_MAX_GAIN, 0x5000);
+  SI47XX_SetAutomaticGainControl(0, 0); /* AGC 开启（原 PowerUp 误写为关闭） */
+  SI47XX_SetAMBandwidth(bwIndex);
 }

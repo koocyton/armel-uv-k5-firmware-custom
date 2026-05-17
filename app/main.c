@@ -207,7 +207,6 @@ static void processFKeyFunction(const KEY_Code_t Key, const bool beep)
 
             break;
 
-#ifdef ENABLE_F_PLUS_4_SCANNER
         case KEY_4:
             gWasFKeyPressed          = false;
 
@@ -220,7 +219,6 @@ static void processFKeyFunction(const KEY_Code_t Key, const bool beep)
             SCANNER_Start(false);
             gRequestDisplayScreen = DISPLAY_SCANNER;
             break;
-#endif
 
         case KEY_5:
             if(beep) {

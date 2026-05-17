@@ -1,7 +1,30 @@
 #!/bin/sh
 
 IMAGE_NAME="uvk5"
-FIRMWARE_DIR="${PWD}/compiled-firmware"
+REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
+FIRMWARE_DIR="${REPO_ROOT}/compiled-firmware"
+
+# Build in container, copy out with docker cp (no -v; avoids macOS File Sharing /users path errors)
+docker_build_and_copy() {
+    build_script="$1"
+    cid=$(docker run -d "$IMAGE_NAME" /bin/bash -c "$build_script") || exit 1
+    exit_code=$(docker wait "$cid")
+    if [ "$exit_code" != "0" ]; then
+        echo "❌ Build failed (container exit $exit_code)"
+        docker logs "$cid" 2>&1 | tail -80
+        docker rm -f "$cid" >/dev/null 2>&1
+        exit 1
+    fi
+    mkdir -p "$FIRMWARE_DIR"
+    docker cp "$cid:/app/compiled-firmware/." "$FIRMWARE_DIR/"
+    docker rm -f "$cid" >/dev/null 2>&1
+    if [ -z "$(ls -A "$FIRMWARE_DIR" 2>/dev/null)" ]; then
+        echo "❌ Build finished but $FIRMWARE_DIR is empty"
+        exit 1
+    fi
+    echo "✅ Output: $FIRMWARE_DIR"
+    ls -la "$FIRMWARE_DIR"
+}
 # Default: Alpine 3.21; you can pass BASE=alpine:3.22 / alpine:3.19 / alpine:edge
 BASE="${BASE:-alpine:3.22}"
 
@@ -50,7 +73,7 @@ clean() {
 
 custom() {
     echo "🔧 Compiling Custom..."
-    docker run -v "$FIRMWARE_DIR:/app/compiled-firmware" "$IMAGE_NAME" /bin/bash -c "\
+    docker_build_and_copy "\
         rm -f ./compiled-firmware/* && cd /app && make -s \
         EDITION_STRING=Custom \
         TARGET=f4hwn.custom \
@@ -59,7 +82,7 @@ custom() {
 
 standard() {
     echo "📦 Compiling Standard..."
-    docker run -v "$FIRMWARE_DIR:/app/compiled-firmware" "$IMAGE_NAME" /bin/bash -c "\
+    docker_build_and_copy "\
         rm -f ./compiled-firmware/* && cd /app && make -s \
         ENABLE_SPECTRUM=0 \
         ENABLE_FMRADIO=0 \
@@ -70,71 +93,9 @@ standard() {
         && cp f4hwn.standard* compiled-firmware/"
 }
 
-si4732_bandscope() {
-    echo "📻📺 Si4732 + Bandscope（频谱）：同时开启；已关闭多项 F4HWN/省电 Flash，UART=0（写频需临时编另一固件）"
-    echo "    AM_FIX=0（省 Flash）；若需 AM 接收校准请改用 si4732 配方或自行关掉 PMR/菜单项权衡。"
-    docker run -v "$FIRMWARE_DIR:/app/compiled-firmware" "$IMAGE_NAME" /bin/bash -c "\
-        rm -f ./compiled-firmware/* && cd /app && make -s \
-        ENABLE_SPECTRUM=1 \
-        ENABLE_FEAT_F4HWN_SPECTRUM=1 \
-        ENABLE_FMRADIO=1 \
-        ENABLE_SI4732=1 \
-        ENABLE_VOX=0 \
-        ENABLE_AIRCOPY=0 \
-        ENABLE_UART=0 \
-        ENABLE_FEAT_F4HWN_SCREENSHOT=0 \
-        ENABLE_FEAT_F4HWN_GAME=0 \
-        ENABLE_FEAT_F4HWN_PMR=1 \
-        ENABLE_FEAT_F4HWN_GMRS_FRS_MURS=1 \
-        ENABLE_NOAA=0 \
-        ENABLE_F_PLUS_4_SCANNER=0 \
-        ENABLE_FEAT_F4HWN_RESCUE_OPS=0 \
-        ENABLE_FEAT_F4HWN_RX_TX_TIMER=0 \
-        ENABLE_FEAT_F4HWN_SLEEP=0 \
-        ENABLE_FEAT_F4HWN_RESUME_STATE=0 \
-        ENABLE_FEAT_F4HWN_NARROWER=0 \
-        ENABLE_FEAT_F4HWN_CA=0 \
-        ENABLE_FEAT_F4HWN_INV=0 \
-        ENABLE_FEAT_F4HWN_CTR=0 \
-        ENABLE_TX1750=0 \
-        ENABLE_FLASHLIGHT=0 \
-        ENABLE_AUDIO_BAR=0 \
-        ENABLE_RSSI_BAR=0 \
-        ENABLE_SMALL_BOLD=0 \
-        ENABLE_EXPERIMENTAL_CLFAGS=0 \
-        ENABLE_COPY_CHAN_TO_VFO=0 \
-        ENABLE_AM_FIX=0 \
-        EDITION_STRING=Si4732Bandscope \
-        TARGET=f4hwn.si4732_bandscope \
-        && cp f4hwn.si4732_bandscope* compiled-firmware/"
-}
-
-si4732() {
-    echo "📻 Compiling Si4732 FM/AM/SSB（无频谱，UART 开着便于 CPS）"
-    docker run -v "$FIRMWARE_DIR:/app/compiled-firmware" "$IMAGE_NAME" /bin/bash -c "\
-        rm -f ./compiled-firmware/* && cd /app && make -s \
-        ENABLE_SPECTRUM=0 \
-        ENABLE_FEAT_F4HWN_SPECTRUM=0 \
-        ENABLE_FMRADIO=1 \
-        ENABLE_VOX=0 \
-        ENABLE_SI4732=1 \
-        ENABLE_AIRCOPY=0 \
-        ENABLE_UART=1 \
-        ENABLE_FEAT_F4HWN_SCREENSHOT=0 \
-        ENABLE_FEAT_F4HWN_GAME=0 \
-        ENABLE_FEAT_F4HWN_PMR=1 \
-        ENABLE_FEAT_F4HWN_GMRS_FRS_MURS=1 \
-        ENABLE_NOAA=0 \
-        ENABLE_F_PLUS_4_SCANNER=0 \
-        ENABLE_FEAT_F4HWN_RESCUE_OPS=0 \
-        EDITION_STRING=Si4732 \
-        TARGET=f4hwn.si4732 \
-        && cp f4hwn.si4732* compiled-firmware/"
-}
-
 bandscope() {
     echo "📺 Compiling Bandscope..."
-    docker run -v "$FIRMWARE_DIR:/app/compiled-firmware" "$IMAGE_NAME" /bin/bash -c "\
+    docker_build_and_copy "\
         rm -f ./compiled-firmware/* && cd /app && make -s \
         ENABLE_SPECTRUM=1 \
         ENABLE_FMRADIO=0 \
@@ -153,7 +114,7 @@ bandscope() {
 
 broadcast() {
     echo "📻 Compiling Broadcast..."
-    docker run -v "$FIRMWARE_DIR:/app/compiled-firmware" "$IMAGE_NAME" /bin/bash -c "\
+    docker_build_and_copy "\
         cd /app && make -s \
         ENABLE_SPECTRUM=0 \
         ENABLE_FMRADIO=1 \
@@ -170,9 +131,31 @@ broadcast() {
         && cp f4hwn.broadcast* compiled-firmware/"
 }
 
+si4732() {
+    echo "📻 Compiling Si4732 (FM/AM/SSB)..."
+    docker_build_and_copy "\
+        rm -f ./compiled-firmware/* && cd /app && make -s \
+        ENABLE_SPECTRUM=0 \
+        ENABLE_FEAT_F4HWN_SPECTRUM=0 \
+        ENABLE_FMRADIO=1 \
+        ENABLE_VOX=0 \
+        ENABLE_SI4732=1 \
+        ENABLE_AIRCOPY=0 \
+        ENABLE_UART=1 \
+        ENABLE_FEAT_F4HWN_SCREENSHOT=0 \
+        ENABLE_FEAT_F4HWN_GAME=0 \
+        ENABLE_FEAT_F4HWN_PMR=1 \
+        ENABLE_FEAT_F4HWN_GMRS_FRS_MURS=1 \
+        ENABLE_NOAA=0 \
+        ENABLE_FEAT_F4HWN_RESCUE_OPS=0 \
+        EDITION_STRING=Si4732 \
+        TARGET=f4hwn.si4732 \
+        && cp f4hwn.si4732* compiled-firmware/"
+}
+
 basic() {
     echo "☘️ Compiling Basic..."
-    docker run -v "$FIRMWARE_DIR:/app/compiled-firmware" "$IMAGE_NAME" /bin/bash -c "\
+    docker_build_and_copy "\
         cd /app && make -s \
         ENABLE_SPECTRUM=1 \
         ENABLE_FMRADIO=1 \
@@ -197,7 +180,7 @@ basic() {
 
 rescueops() {
     echo "🚨 Compiling RescueOps..."
-    docker run -v "$FIRMWARE_DIR:/app/compiled-firmware" "$IMAGE_NAME" /bin/bash -c "\
+    docker_build_and_copy "\
         cd /app && make -s \
         ENABLE_SPECTRUM=0 \
         ENABLE_FMRADIO=0 \
@@ -216,7 +199,7 @@ rescueops() {
 
 game() {
     echo "🎮 Compiling Game..."
-    docker run -v "$FIRMWARE_DIR:/app/compiled-firmware" "$IMAGE_NAME" /bin/bash -c "\
+    docker_build_and_copy "\
         cd /app && make -s \
         ENABLE_SPECTRUM=0 \
         ENABLE_FMRADIO=1 \
@@ -238,10 +221,9 @@ case "$1" in
     clean) clean ;;
     custom) custom ;;
     standard) standard ;;
-    si4732_bandscope) si4732_bandscope ;;
-    si4732) si4732 ;;
     bandscope) bandscope ;;
     broadcast) broadcast ;;
+    si4732) si4732 ;;
     basic) basic ;;
     rescueops) rescueops ;;
     game) game ;;
@@ -253,7 +235,7 @@ case "$1" in
         game
         ;;
     *)
-        echo "Usage: BASE=alpine:<tag> $0 {clean|custom|standard|si4732_bandscope|si4732|bandscope|broadcast|basic|rescueops|game|all}"
+        echo "Usage: BASE=alpine:<tag> $0 {clean|custom|standard|bandscope|broadcast|si4732|basic|rescueops|game|all}"
         echo "Examples: BASE=alpine:3.22 … | BASE=alpine:3.21 … | BASE=alpine:3.19 … | BASE=alpine:edge …"
         exit 1
         ;;
