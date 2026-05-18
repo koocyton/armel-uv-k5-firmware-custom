@@ -98,6 +98,30 @@ void UI_PrintString(const char *pString, uint8_t Start, uint8_t End, uint8_t Lin
 	}
 }
 
+void UI_PrintStringInverted(const char *pString, uint8_t Start, uint8_t End, uint8_t Line, uint8_t Width)
+{
+	size_t i;
+	size_t Length = strlen(pString);
+
+	if (End > Start)
+		Start += (((End - Start) - (Length * Width)) + 1) / 2;
+
+	for (i = 0; i < Length; i++)
+	{
+		const unsigned int ofs = (unsigned int)Start + (i * Width);
+		if (pString[i] > ' ' && pString[i] < 127)
+		{
+			const unsigned int index = pString[i] - ' ' - 1;
+			unsigned int       j;
+			for (j = 0; j < 7; j++)
+			{
+				gFrameBuffer[Line + 0][ofs + j] ^= gFontBig[index][j];
+				gFrameBuffer[Line + 1][ofs + j] ^= gFontBig[index][j + 7];
+			}
+		}
+	}
+}
+
 void UI_PrintStringSmall(const char *pString, uint8_t Start, uint8_t End, uint8_t Line, uint8_t char_width, const uint8_t *font)
 {
 	const size_t Length = strlen(pString);
@@ -226,6 +250,41 @@ void UI_DrawRectangleBuffer(uint8_t (*buffer)[128], int16_t x1, int16_t y1, int1
 	UI_DrawLineBuffer(buffer, x1,y2, x2,y2, black);
 }
 
+void UI_FillRectangleBuffer(uint8_t (*buffer)[128], int16_t x1, int16_t y1, int16_t x2, int16_t y2, bool black)
+{
+	sort(&x1, &x2);
+	sort(&y1, &y2);
+	for (int16_t y = y1; y <= y2; y++)
+	{
+		if (y < 0 || y >= (FRAME_LINES * 8))
+			continue;
+		for (int16_t x = x1; x <= x2; x++)
+		{
+			if (x < 0 || x >= LCD_WIDTH)
+				continue;
+			UI_DrawPixelBuffer(buffer, (uint8_t)x, (uint8_t)y, black);
+		}
+	}
+}
+
+void UI_InvertRectangleBuffer(uint8_t (*buffer)[128], int16_t x1, int16_t y1, int16_t x2, int16_t y2)
+{
+	sort(&x1, &x2);
+	sort(&y1, &y2);
+	for (int16_t y = y1; y <= y2; y++)
+	{
+		if (y < 0 || y >= (FRAME_LINES * 8))
+			continue;
+		const uint8_t pat = (uint8_t)(1u << (y % 8));
+		const uint8_t row = (uint8_t)(y / 8);
+		for (int16_t x = x1; x <= x2; x++)
+		{
+			if (x < 0 || x >= LCD_WIDTH)
+				continue;
+			buffer[row][(uint8_t)x] ^= pat;
+		}
+	}
+}
 
 void UI_DisplayPopup(const char *string)
 {

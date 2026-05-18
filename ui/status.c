@@ -72,29 +72,37 @@ void UI_DisplayStatus()
 	else
 #endif
 #ifdef ENABLE_FMRADIO
-	if (gFmRadioMode) { // FM indicator
-		memcpy(line + x, BITMAP_FM, sizeof(BITMAP_FM));
-		x1 = x + sizeof(BITMAP_FM);
-	}
-	else
+#if defined(ENABLE_FM_SI4732)
+	/* 收音机界面不在状态栏显示 FM 位图（模式已在收音机画面内显示） */
+	if (!gFmRadioMode)
 #endif
-	{ // SCAN indicator
-		if (gScanStateDir != SCAN_OFF || SCANNER_IsScanning()) {
-			char * s = "";
-			if (IS_MR_CHANNEL(gNextMrChannel) && !SCANNER_IsScanning()) { // channel mode
-				switch(gEeprom.SCAN_LIST_DEFAULT) {
-					case 0: s = "1"; break;
-					case 1: s = "2"; break;
-					case 2: s = "*"; break;
+	{
+#if !defined(ENABLE_FM_SI4732)
+		if (gFmRadioMode) { // FM indicator
+			memcpy(line + x, BITMAP_FM, sizeof(BITMAP_FM));
+			x1 = x + sizeof(BITMAP_FM);
+		}
+		else
+#endif
+		{ // SCAN indicator
+			if (gScanStateDir != SCAN_OFF || SCANNER_IsScanning()) {
+				char * s = "";
+				if (IS_MR_CHANNEL(gNextMrChannel) && !SCANNER_IsScanning()) { // channel mode
+					switch(gEeprom.SCAN_LIST_DEFAULT) {
+						case 0: s = "1"; break;
+						case 1: s = "2"; break;
+						case 2: s = "*"; break;
+					}
 				}
+				else {	// frequency mode
+					s = "S";
+				}
+				UI_PrintStringSmallBufferNormal(s, line + x + 1);
+				x1 = x + 10;
 			}
-			else {	// frequency mode
-				s = "S";
-			}
-			UI_PrintStringSmallBufferNormal(s, line + x + 1);
-			x1 = x + 10;
 		}
 	}
+#endif
 	x += 10;  // font character width
 
 #ifdef ENABLE_VOICE

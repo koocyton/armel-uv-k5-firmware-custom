@@ -105,6 +105,42 @@ typedef struct {
 	} Data;
 } REPLY_051D_t;
 
+#if defined(ENABLE_SI4732) && defined(ENABLE_UART)
+typedef struct __attribute__((packed)) {
+	Header_t Header;
+	uint32_t Address;
+	uint8_t  Size;
+	uint8_t  Padding[3];
+	uint32_t Timestamp;
+} CMD_05F0_t;
+
+typedef struct {
+	Header_t Header;
+	struct {
+		uint32_t Address;
+		uint8_t  Size;
+		uint8_t  Padding[3];
+		uint8_t  Data[128];
+	} Data;
+} REPLY_05F1_t;
+
+typedef struct __attribute__((packed)) {
+	Header_t Header;
+	uint32_t Address;
+	uint8_t  Size;
+	uint8_t  Padding[3];
+	uint32_t Timestamp;
+	uint8_t  Data[120];
+} CMD_05F2_t;
+
+typedef struct {
+	Header_t Header;
+	struct {
+		uint32_t Address;
+	} Data;
+} REPLY_05F3_t;
+#endif
+
 typedef struct {
 	Header_t Header;
 	struct {
@@ -325,6 +361,72 @@ static void CMD_051D(const uint8_t *pBuffer)
 
 	SendReply(&Reply, sizeof(Reply));
 }
+
+#if defined(ENABLE_SI4732) && defined(ENABLE_UART)
+static void CMD_05F0(const uint8_t *pBuffer)
+{
+	const CMD_05F0_t *pCmd = (const CMD_05F0_t *)pBuffer;
+	REPLY_05F1_t      Reply;
+	bool              bLocked;
+
+	if (pCmd->Timestamp != Timestamp)
+		return;
+
+	gSerialConfigCountDown_500ms = 12;
+
+	#ifdef ENABLE_FMRADIO
+		gFmRadioCountdown_500ms = fm_radio_countdown_500ms;
+	#endif
+
+	memset(&Reply, 0, sizeof(Reply));
+	Reply.Header.ID     = 0x05F1;
+	Reply.Header.Size   = (uint16_t)(pCmd->Size + 8U);
+	Reply.Data.Address  = pCmd->Address;
+	Reply.Data.Size     = pCmd->Size;
+
+	if (pCmd->Size != 0 && pCmd->Size <= 128 &&
+	    (uint32_t)pCmd->Address + (uint32_t)pCmd->Size <= 262144U)
+	{
+		bLocked = bHasCustomAesKey ? gIsLocked : false;
+		if (!bLocked)
+			EEPROM_ReadBuffer32(pCmd->Address, Reply.Data.Data, pCmd->Size);
+	}
+
+	SendReply(&Reply, (uint16_t)(12 + pCmd->Size));
+}
+
+static void CMD_05F2(const uint8_t *pBuffer)
+{
+	const CMD_05F2_t *pCmd = (const CMD_05F2_t *)pBuffer;
+	REPLY_05F3_t      Reply;
+	bool              bIsLocked;
+
+	if (pCmd->Timestamp != Timestamp)
+		return;
+
+	gSerialConfigCountDown_500ms = 12;
+
+	#ifdef ENABLE_FMRADIO
+		gFmRadioCountdown_500ms = fm_radio_countdown_500ms;
+	#endif
+
+	Reply.Header.ID    = 0x05F3;
+	Reply.Header.Size  = sizeof(Reply.Data);
+	Reply.Data.Address = pCmd->Address;
+
+	bIsLocked = bHasCustomAesKey ? gIsLocked : false;
+
+	if (!bIsLocked && pCmd->Size != 0 && (pCmd->Size % 8U) == 0 && pCmd->Size <= 120U &&
+	    (uint32_t)pCmd->Address + (uint32_t)pCmd->Size <= 262144U)
+	{
+		unsigned int i;
+		for (i = 0; i < (pCmd->Size / 8U); i++)
+			EEPROM_WriteBuffer32(pCmd->Address + (i * 8U), &pCmd->Data[i * 8U]);
+	}
+
+	SendReply(&Reply, sizeof(Reply));
+}
+#endif
 
 // read RSSI
 static void CMD_0527(void)
@@ -580,6 +682,16 @@ void UART_HandleCommand(void)
 		case 0x051D:
 			CMD_051D(UART_Command.Buffer);
 			break;
+
+#if defined(ENABLE_SI4732) && defined(ENABLE_UART)
+		case 0x05F0:
+			CMD_05F0(UART_Command.Buffer);
+			break;
+
+		case 0x05F2:
+			CMD_05F2(UART_Command.Buffer);
+			break;
+#endif
 	
 		case 0x051F:	// Not implementing non-authentic command
 			break;

@@ -7,14 +7,20 @@
 ENABLE_UART                   ?= 1
 ENABLE_AIRCOPY                ?= 0
 ENABLE_FMRADIO                ?= 1
+# Si4732 (FM/AM/SSB): requires ENABLE_FMRADIO=1; use BK1080 driver when 0
+ENABLE_SI4732                 ?= 1
+ENABLE_FM_SI4732_AUDIO_PATH_INVERTED ?= 0
+ENABLE_SI4732_AM_USE_FMI      ?= 0
+# FM de-emphasis: 0=50µs (CN/EU/JP), 1=75µs (Americas)
+ENABLE_SI4732_FM_DEEMPH_75    ?= 0
 ENABLE_NOAA                   ?= 0
 ENABLE_VOICE                  ?= 0
-ENABLE_VOX                    ?= 1
+ENABLE_VOX                    ?= 0
 ENABLE_ALARM                  ?= 0
 ENABLE_TX1750                 ?= 0
 ENABLE_PWRON_PASSWORD         ?= 0
-ENABLE_DTMF_CALLING           ?= 1
-ENABLE_FLASHLIGHT             ?= 1
+ENABLE_DTMF_CALLING           ?= 0
+ENABLE_FLASHLIGHT             ?= 0
 
 # ---- CUSTOM MODS ----
 ENABLE_BIG_FREQ               ?= 1
@@ -31,7 +37,7 @@ ENABLE_REVERSE_BAT_SYMBOL     ?= 0
 ENABLE_NO_CODE_SCAN_TIMEOUT   ?= 1
 ENABLE_AM_FIX                 ?= 1
 ENABLE_SQUELCH_MORE_SENSITIVE ?= 1
-ENABLE_FASTER_CHANNEL_SCAN    ?= 1
+ENABLE_FASTER_CHANNEL_SCAN    ?= 0
 ENABLE_RSSI_BAR               ?= 1
 ENABLE_AUDIO_BAR              ?= 1
 ENABLE_COPY_CHAN_TO_VFO       ?= 1
@@ -66,6 +72,11 @@ ifeq ($(ENABLE_LTO),1)
 	ENABLE_OVERLAY := 0
 endif
 
+# Si4732 (FM/AM/SSB) needs ~4.5KB more flash than BK1080; cannot fit with ENABLE_SPECTRUM on 60KB parts.
+ifeq ($(and $(filter 1,$(ENABLE_SI4732)),$(filter 1,$(ENABLE_SPECTRUM))),11)
+$(error ENABLE_SI4732 and ENABLE_SPECTRUM together exceed 60KB flash. Disable one: e.g. make ENABLE_SPECTRUM=0, or set ENABLE_SI4732=0 for BK1080 FM.)
+endif
+
 BSP_DEFINITIONS := $(wildcard hardware/*/*.def)
 BSP_HEADERS     := $(patsubst hardware/%,bsp/%,$(BSP_DEFINITIONS))
 BSP_HEADERS     := $(patsubst %.def,%.h,$(BSP_HEADERS))
@@ -86,7 +97,12 @@ ifeq ($(ENABLE_UART),1)
 endif
 OBJS += driver/backlight.o
 ifeq ($(ENABLE_FMRADIO),1)
+ifeq ($(ENABLE_SI4732),1)
+	OBJS += driver/si473x.o
+	OBJS += driver/si4732.o
+else
 	OBJS += driver/bk1080.o
+endif
 endif
 OBJS += driver/bk4819.o
 ifeq ($(filter $(ENABLE_AIRCOPY) $(ENABLE_UART),1),1)
@@ -265,6 +281,18 @@ ifeq ($(ENABLE_AIRCOPY),1)
 endif
 ifeq ($(ENABLE_FMRADIO),1)
 	CFLAGS += -DENABLE_FMRADIO
+ifeq ($(ENABLE_SI4732),1)
+	CFLAGS += -DENABLE_SI4732 -DENABLE_FM_SI4732
+endif
+endif
+ifeq ($(ENABLE_FM_SI4732_AUDIO_PATH_INVERTED),1)
+	CFLAGS += -DENABLE_FM_SI4732_AUDIO_PATH_INVERTED
+endif
+ifeq ($(ENABLE_SI4732_AM_USE_FMI),1)
+	CFLAGS += -DENABLE_SI4732_AM_USE_FMI
+endif
+ifeq ($(ENABLE_SI4732_FM_DEEMPH_75),1)
+	CFLAGS += -DSI47XX_FM_DEEMPH_75
 endif
 ifeq ($(ENABLE_UART),1)
 	CFLAGS += -DENABLE_UART
