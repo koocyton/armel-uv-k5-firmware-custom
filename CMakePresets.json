@@ -212,6 +212,36 @@
                 "EDITION_STRING": "Fusion",
                 "TARGET": "f4hwn.fusion"
             }
+        },
+        {
+            "name": "Si4732",
+            "inherits": "default",
+            "cacheVariables": {
+                "ENABLE_SPECTRUM": true,
+                "ENABLE_FMRADIO": true,
+                "ENABLE_SI4732": true,
+                "ENABLE_FM_SI4732_AUDIO_PATH_INVERTED": true,
+                "ENABLE_SI4732_AM_USE_FMI": true,
+                "ENABLE_VOX": true,
+                "ENABLE_AIRCOPY": true,
+                "ENABLE_FEAT_F4HWN_SCREENSHOT": false,
+                "ENABLE_FEAT_F4HWN_GAME": false,
+                "ENABLE_FEAT_F4HWN_PMR": true,
+                "ENABLE_FEAT_F4HWN_GMRS_FRS_MURS": true,
+                "ENABLE_FEAT_F4HWN_RESCUE_OPS": true,
+                "ENABLE_FEAT_F4HWN_VOL": true,
+                "ENABLE_FEAT_F4HWN_AUDIO": true,
+                "ENABLE_FEAT_F4HWN_AUDIO_SCOPE": true,
+                "ENABLE_FEAT_F4HWN_SCAN_PROGRESS": true,
+                "ENABLE_FEAT_F4HWN_SCAN_FASTER": true,
+                "ENABLE_FEAT_F4HWN_BEAM": true,
+                "ENABLE_FEAT_F4HWN_QRCODE": true,
+                "ENABLE_FEAT_F4HWN_MEM": true,
+                "ENABLE_FEAT_F4HWN_LOGO": false,
+                "ENABLE_SWD": true,
+                "EDITION_STRING": "Si4732",
+                "TARGET": "f4hwn.si4732"
+            }
         }
     ],
     "buildPresets": [
@@ -242,6 +272,10 @@
         {
             "name": "Fusion",
             "configurePreset": "Fusion"
+        },
+        {
+            "name": "Si4732",
+            "configurePreset": "Si4732"
         }
     ]
 }
