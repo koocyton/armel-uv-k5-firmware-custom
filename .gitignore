@@ -7,8 +7,11 @@ firmware
 .cache
 compile_commands.json
 .vscode
+.claude
 /docs
 k5_eeprom.raw
-f4hwn
-f4hwn.*
-!archive/f4hwn*
+
+/build
+__pycache__/
+
+.DS_Store

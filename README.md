@@ -1,17 +1,28 @@
 # Stats
 
-![Alt](https://repobeats.axiom.co/api/embed/947813147857755cef60a960d13734044b3b2c22.svg "Repobeats analytics image")
+![Alt](https://repobeats.axiom.co/api/embed/ecdd86aa536b716f088339a0c5ee734558f78c28.svg "Repobeats analytics image")
 
-# Open re-implementation of the Quansheng UV-K5/K6/5R v2.1.27 firmware
+# F4HWN firmware port for the UV-K1 and UV-K5 V3 using the PY32F071 MCU
 
-This repository is a fork of [Egzumer custom firmware](https://github.com/egzumer/uv-k5-firmware-custom), who was a merge of [OneOfEleven custom firmware](https://github.com/OneOfEleven/uv-k5-firmware-custom) with [fagci spectrum analizer](https://github.com/fagci/uv-k5-firmware-fagci-mod/tree/refactor) plus my few changes.
+This repository is a fork of the [F4HWN custom firmware](https://github.com/armel/uv-k5-firmware-custom), who was a fork of [Egzumer custom firmware](https://github.com/egzumer/uv-k5-firmware-custom). It extends the work done for the UV-K5 V1, based on the DP32G030 MCU, and adapts it to the newer UV-K1 and UV-K5 V3 built around the PY32F071 MCU. It is the result of the joint work of [@muzkr](https://github.com/muzkr) and [@armel](https://github.com/armel).
 
-All is a cloned and customized version of DualTachyon's open firmware found [here](https://github.com/DualTachyon/uv-k5-firmware) ... a cool achievement !
+A big thanks to DualTachyon, who paved the way by releasing the very first open-source [firmware](https://github.com/DualTachyon/uv-k5-firmware) for the UV-K5 V1. None of this would have been possible without that initial work !
 
-> [!NOTE]
-> EN - About Chirp, as many others firmwares, you need to use a dedicated driver available on [this repository](https://github.com/armel/uv-k5-chirp-driver). 
->
-> _FR - A propos de Chirp, comme beaucoup d'autres firmwares, vous devez utiliser un pilote dédié disponible sur [ce dépôt](https://github.com/armel/uv-k5-chirp-driver)._
+# A note for developers who intend to fork this project
+
+This firmware is distributed under the Apache 2.0 License, carrying forward the original copyright of DualTachyon, whose work laid the foundation for the UV-K5 open-source ecosystem.
+If you create a fork or a derived version, **we strongly encourage you to keep your work open source**.
+
+Keeping your fork open:
+
+- aligns with the intent and spirit of the Apache 2.0 License
+- supports the amateur-radio and embedded-development community
+- avoids unnecessary fragmentation
+- allows others to study, audit and improve the firmware
+
+It is also very much in line with the **ham spirit**: sharing knowledge, experimenting together and helping each other, rather than closing things off or claiming them as your own.
+
+Maintaining an open-source fork is the best way to help build a healthy and sustainable ecosystem for everyone.
 
 > [!WARNING]
 > EN - THIS FIRMWARE HAS NO REAL BRAIN. PLEASE USE YOUR OWN. Use this firmware at your own risk (entirely). There is absolutely no guarantee that it will work in any way shape or form on your radio(s), it may even brick your radio(s), in which case, you'd need to buy another radio.
@@ -19,36 +30,42 @@ Anyway, have fun.
 >
 > _FR - CE FIRMWARE N'A PAS DE VÉRITABLE CERVEAU. VEUILLEZ UTILISER LE VÔTRE. Utilisez ce firmware à vos risques et périls. Il n'y a absolument aucune garantie qu'il fonctionnera d'une manière ou d'une autre sur votre (vos) radio(s), il peut même bousiller votre (vos) radio(s), dans ce cas, vous devrez acheter une autre radio. Quoi qu'il en soit, amusez-vous bien._
 
-> [!CAUTION]
-> EN - I recommend to backup your eeprom with [k5prog](https://github.com/sq5bpf/k5prog) before playing with alternative firmwares. It's a good reflex to have. 
+> [!NOTE]
+> EN - About CHIRP, as with many other firmwares, you need to use a dedicated driver. The matching CHIRP driver is now bundled with each release of this repository, so you can download the firmware and its driver together from the [Releases page](https://github.com/armel/uv-k1-k5v3-firmware-custom/releases).
 >
-> _FR - Je recommande de sauvegarder votre eeprom avec [k5prog](https://github.com/sq5bpf/k5prog) avant de jouer avec des firmwares alternatifs. C'est un bon réflexe à avoir._
+> _FR - A propos de CHIRP, comme pour beaucoup d'autres firmwares, vous devez utiliser un pilote dédié. Le driver CHIRP correspondant est désormais fourni avec chaque release de ce dépôt, ce qui permet de récupérer ensemble le firmware et son pilote depuis la page des [Releases](https://github.com/armel/uv-k1-k5v3-firmware-custom/releases)._
+
+> [!CAUTION]
+> EN - I recommend to backup your calibration data with [uvtools2](https://armel.github.io/uvtools2/) just after flashing this firmware. It's a good reflex to have. 
+>
+> _FR - Je recommande de sauvegarder vos données de calibration avec [uvtools2](https://armel.github.io/uvtools2/) juste après avoir flashé ce firmware. C'est un bon réflexe à avoir._
 
 # Donations
 
-Special thanks to Jean-Cyrille F6IWW (2 times), Fabrice 14RC123, David F4BPP, Olivier 14RC206, Frédéric F4ESO, Stéphane F5LGW, Jorge Ornelas (4 times), Laurent F4AXK, Christophe Morel, Clayton W0LED, Pierre Antoine F6FWB, Jean-Claude 14FRS3306, Thierry F4GVO, Eric F1NOU, PricelessToolkit, Ady M6NYJ, Tom McGovern (4 times), Joseph Roth, Pierre-Yves Colin, Frank DJ7FG, Marcel Testaz, Brian Frobisher, Yannick F4JFO, Paolo Bussola, Dirk DL8DF, Levente Szőke (2 times), Bernard-Michel Herrera, Jérôme Saintespes, Paul Davies, RS (3 times), Johan F4WAT, Robert Wörle, Rafael Sundorf, Paul Harker, Peter Fintl, Pascal F4ICR (2 times), Mike DL2MF, Eric KI1C (2 times), Phil G0ELM, Jérôme Lambert, Meinhard Frank Günther, Eliot Vedel, Alfonso EA7KDF, Jean-François F1EVM, Robert DC1RDB, Ian KE2CHJ, Daryl VK3AWA, Roberto Brunelli, Robert Boardman, Stephen Oliver, Nicolas F4INE and William Bruno for their [donations](https://www.paypal.com/paypalme/F4HWN). That’s so kind of them. Thanks so much 🙏🏻
+Special thanks to Jean-Cyrille F6IWW (3 times), Fabrice 14RC123, David F4BPP, Olivier 14RC206, Frédéric F4ESO, Stéphane F5LGW (2 times), Jorge Ornelas (4 times), Laurent F4AXK, Christophe Morel, Clayton W0LED, Pierre Antoine F6FWB, Jean-Claude 14FRS3306, Thierry F4GVO, Eric F1NOU, PricelessToolkit, Ady M6NYJ, Tom McGovern (4 times), Joseph Roth, Pierre-Yves Colin, Frank DJ7FG, Marcel Testaz, Brian Frobisher, Yannick F4JFO, Paolo Bussola, Dirk DL8DF, Levente Szőke (2 times), Bernard-Michel Herrera, Jérôme Saintespes, Paul Davies, RS (3 times), Johan F4WAT, Robert Wörle, Rafael Sundorf, Paul Harker, Peter Fintl, Pascal F4ICR (2 times), Mike DL2MF (3 times), Eric KI1C (2 times), Phil G0ELM, Jérôme Lambert, Eliot Vedel, Alfonso EA7KDF, Jean-François F1EVM, Robert DC1RDB (2 times), Ian KE2CHJ, Daryl VK3AWA, Roberto Brunelli, Robert Boardman, Stephen Oliver, Nicolas F4INE, William Bruno, Daniel OK2VLK, Tayler Chew, Peter DL7RFP, Philippe Kopp, Rune LA6YMA, Jeremy Luna, Steef Wagenaar (2 times), Zhuo BG7SGA, Jamie M0JLB, Antoine LIBERT, Vince K0DKR, Julia DF7JA, Ken 2E0UMK, Victor TI2SYS, Tobi DG9LAY, Deaglan K4DFQ, Catherine PALMER, Brian WA6JFK, Stéphane Hintzy, Roger F1HCN and Marcin Kusaj for their [donations](https://www.paypal.com/paypalme/F4HWN). That’s so kind of them. Thanks so much 🙏🏻
 
 ## Table of Contents
 
 * [My Features](#main-features)
 * [Main Features from Egzumer](#main-features-from-egzumer)
 * [Manual](#manual)
-* [Radio Performance](#radio-performance)
-* [Compiler](#compiler)
-* [Building](#building)
+* [Compiling and Building from Docker](#compiling-and-Building-from-docker)
+* [Flashing the Firmware with UVTools2](#flashing-the-firmware-with-uvtools2)
 * [Credits](#credits)
 * [Other sources of information](#other-sources-of-information)
 * [License](#license)
-* [Example changes/updates](#example-changesupdates)
 
 ## Main features and improvements from F4HWN:
 
-* several firmware versions:
-    * Bandscope (with spectrum analyzer made by Fagci),
-    * Broadcast (with commercial FM radio support),
-    * Basic (with spectrum analyzer and commercial FM radios support, but without certain functions such as Vox, Aircopy, etc.),
-    * RescueOps (specifically designed for first responders: firefighters, sea rescue, mountain rescue),
-    * Game (with a small breakout game),
+* Fusion is now the reference edition of the project:
+    * all-in-one firmware for UV-K1 and UV-K5 V3,
+    * spectrum analyzer made by Fagci,
+    * commercial FM radio support,
+    * Vox and Aircopy support,
+    * screenshots and K5Viewer support,
+    * advanced RX audio profiles and Audio Scope,
+    * first-responder oriented options,
+    * small breakout game,
 * improve default power settings level: 
     * Low1 to Low5 (<~20mW, ~125mW, ~250mW, ~500mW, ~1W), 
     * Mid ~2W, 
@@ -78,6 +95,8 @@ Special thanks to Jean-Cyrille F6IWW (2 times), Fabrice 14RC123, David F4BPP, Ol
     * improve keyboard frequency input,
     * add percent and gauge to Air Copy,
     * improve audio bar,
+    * add backlight fading,
+    * add Audio Scope on TX,
     * and more...
 * new menu entries and changes:
     * add SetPwr menu to set User power (<20mW, 125mW, 250mW, 500mW, 1W, 2W or 5W),
@@ -89,10 +108,13 @@ Special thanks to Jean-Cyrille F6IWW (2 times), Fabrice 14RC123, David F4BPP, Ol
     * add SetMet menu to set s-meter style (Classic or Tiny),
     * add SetLck menu to set what is locked (Keys or Keys + PTT),
     * add SetGUI menu to set font size on the VFO baseline (Classic or Tiny),
+    * add SetRxA menu to select RX audio profiles,
     * add TXLock menu to open TX on channel,
     * add SetTmr menu to set RX and TX timers (Off or On),
     * add SetOff menu to set the delay before the transceiver goes into deep sleep (Off or 1 minute to 2 hours),
     * add SetNFM menu to set Narrow width (12.5kHz or 6.25kHz),
+    * add SetVol menu to adjust RX audio volume,
+    * add SetScn menu to set Scan mode
     * rename BatVol menu (52/63) to SysInf, which displays the firmware version in addition to the battery status,
     * improve PonMsg menu,
     * improve BackLt menu,
@@ -102,6 +124,7 @@ Special thanks to Jean-Cyrille F6IWW (2 times), Fabrice 14RC123, David F4BPP, Ol
     * add HAM CA F Lock band (for Canadian zone),
     * add PMR 446 F Lock band,
     * add FRS/GMRS/MURS F Lock band,
+    * add SetNav hidden menu to select the navigation layout according to the radio model,
     * remove blink and SOS functionality, 
     * remove AM Fix menu (AM Fix is ENABLED by default),
     * add support of 3500mAh battery,
@@ -110,18 +133,18 @@ Special thanks to Jean-Cyrille F6IWW (2 times), Fabrice 14RC123, David F4BPP, Ol
     * change font and bitmaps,
     * move USB icon to left of battery information,
     * add RX and TX timers,
-* improve lists and scan lists options:
-    * add new list 3,
-    * add new list 0 (channel without list...),
-    * add new scan lists options,
-        * scan list 0 (all channels without list),
-        * scan list 1,
-        * scan list 2,
-        * scan list 3,
-        * scan lists [1, 2, 3],
-        * scan all (all channels with or without list),
-    * add scan list shortcuts,
-* add resume mode on startup (scan, bandscope and broadcast FM),
+* improve channel scanning:
+    * support up to 24 scan lists,
+    * each memory channel can be assigned to `OFF`, to one list (`01` to `24`), or to `ALL`,
+    * `ALL` scans every channel except those set to `OFF`,
+    * named scan lists are shown in the UI and status bar when available,
+    * if the selected scan list is empty or invalid, the firmware automatically jumps to the next valid one,
+    * very fast scan mode (around 150 freq/s),
+    * frequencies exclusions,
+* add resume mode on startup (scan, spectrum analyzer and FM radio),
+* improve VFO persistence and restore behavior:
+    * save the Squelch level adjusted with F + UP or F + DOWN,
+    * restore the full VFO state on long press of EXIT,
 * new actions:
     * RX MODE,
     * MAIN ONLY,
@@ -129,23 +152,26 @@ Special thanks to Jean-Cyrille F6IWW (2 times), Fabrice 14RC123, David F4BPP, Ol
     * WIDE NARROW,
     * 1750Hz,
     * MUTE,
-    * POWER HIGH (RescueOps),
-    * REMOVE OFFSET (RescueOps),
+    * POWER HIGH,
+    * REMOVE OFFSET,
+    * BEAM,
 * new key combinations:
     * add the F + UP or F + DOWN key combination to dynamically change the Squelch level,
     * add the F + F1 or F + F2 key combination to dynamically change the Step,
     * add F + 8 to quickly switch backlight between BLMin and BLMax on demand (this bypass BackLt strategy),
     * add F + 9 to return to BackLt strategy,
-    * add long press on MENU, in * SCAN mode, to temporarily exclude a memory channel,
-    * add short press on [0, 1, 2, 3, 4 or 5], in * SCAN mode, to dynamically change scan list.
+    * add long press on MENU, in * SCAN mode, to exclude the current memory channel,
+    * add direct scan list selection while scanning with two digits (`00` = `ALL`, `01` to `24` = scan list).
 * many fix:
     * squelch, 
     * s-meter,
     * DTMF overlaying, 
-    * scan list 2 ignored, 
     * scan range limit,
     * clean display on startup,
     * no more PWM noise,
+    * K5Viewer/serial key handling,
+    * spectrum freeze on USB-C unplug,
+    * Audio Scope behavior in OnePush mode and after DTMF/1750,
     * and more...
 * enabled AIR COPY
 * disabled ENABLE_DTMF_CALLING,
@@ -153,7 +179,7 @@ Special thanks to Jean-Cyrille F6IWW (2 times), Fabrice 14RC123, David F4BPP, Ol
 * remove 200Tx, 350Tx and 500Tx,
 * unlock TX on all bands needs only to be repeat 3 times,
 * code refactoring and many memory optimization,
-* displays the live screen of the Quansheng K5 on your computer via a USB-to-Serial cable,
+* stream the live screen of the Quansheng K5 to K5Viewer and capture screenshots over a USB-to-Serial cable,
 * and more...
 
 ## Main features from Egzumer:
@@ -189,7 +215,7 @@ Special thanks to Jean-Cyrille F6IWW (2 times), Fabrice 14RC123, David F4BPP, Ol
 
  ## Manual
 
-Up to date manual is available in the [Wiki section](https://github.com/armel/uv-k5-firmware-custom/wiki)
+Up to date manual is available in the [Wiki section](https://github.com/armel/uv-k1-k5v3-firmware-custom/wiki)
 
 ## Radio performance
 
@@ -197,95 +223,127 @@ Please note that the Quansheng UV-Kx radios are not professional quality transce
 performance is strictly limited. The RX front end has no track-tuned band pass filtering
 at all, and so are wide band/wide open to any and all signals over a large frequency range.
 
-Using the radio in high intensity RF environments will most likely make reception anything but
-easy (AM mode will suffer far more than FM ever will), the receiver simply doesn't have a
-great dynamic range, which results in distorted AM audio with stronger RX'ed signals.
-There is nothing more anyone can do in firmware/software to improve that, once the RX gain
-adjustment I do (AM fix) reaches the hardwares limit, your AM RX audio will be all but
-non-existent (just like Quansheng's firmware).
-On the other hand, FM RX audio will/should be fine.
+Using the radio in high intensity RF environments will most likely make reception difficult,
+especially in AM mode. The receiver simply does not have a great dynamic range, so stronger
+signals can easily cause distortion, desensitization and poor AM audio.
+This is fundamentally a hardware limitation: firmware can improve behavior at the margins, but
+it cannot overcome the front-end design of the radio.
+In practice, AM reception will degrade first and most severely, while FM reception is generally
+more tolerant and should remain more usable.
 
 But, they are nice toys for the price, fun to play with.
 
-## Compiler
+## Compiling and Building from Docker
 
-arm-none-eabi GCC version 10.3.1 is recommended, which is the current version on Ubuntu 22.04.03 LTS.
-Other versions may generate a flash file that is too big.
-You can get an appropriate version from: https://developer.arm.com/downloads/-/gnu-rm
+This project provides a Docker-based build system to compile the Fusion firmware for the UV-K1 and UV-K5 V3. Everything is handled through the `compile-with-docker.sh` helper script.
 
-clang may be used but isn't fully supported. Resulting binaries may also be bigger.
-You can get it from: https://releases.llvm.org/download.html
+The documented build output is generated inside `build/Fusion`, using the CMake presets defined in `CMakePresets.json`.
 
-## Building
+### Prerequisites
 
-### Github Codespace build method
+- Docker installed on your system
+- Bash environment (Linux, macOS, WSL, Git Bash on Windows)
 
-This is the least demanding option as you don't have to install enything on your computer. All you need is Github account.
+### Build Script Overview
 
-1. Go to https://github.com/armel/uv-k5-firmware-custom
-1. Click green `Code` button
-1. Change tab from `Local` to `Codespace`
-1. Click green `Create codespace on main` button
+The script `compile-with-docker.sh` performs the following actions:
 
-<img src="images/Code_Space_1.png" width=700 />
+1. Builds the Docker image (`uvk1-uvk5v3`) if it does not already exist.
+2. Removes any previous `build` directory to ensure a clean configuration.
+3. Runs CMake using the `Fusion` preset inside the Docker container.
+4. Builds the firmware and outputs `.elf`, `.bin` and `.hex` files.
 
-5. Open `Makefile`, edit build options and save changes
-1. If necessary, open `compile-with-docker.sh`, edit build versions and save changes
-1. Run in terminal window
-    - `./compile-with-docker.sh bandscope` to compile bandscope version
-    - `./compile-with-docker.sh broadcast` to compile broadcast version
-    - `./compile-with-docker.sh voxless` to compile voxless version
-    - `./compile-with-docker.sh all` to compile all versions 
-    - `./compile-with-docker.sh custom` to compile only with Makefile build options   
-1. Open folder `compiled-firmware`
-1. Right click `firmware.packed.bin`
-1. Click `Download`, now you should have a firmware on your computer that you can proceed to flash on your radio. You can use [online flasher](https://egzumer.github.io/uvtools)
+### Usage
 
-<img src="images/Code_Space_2.png" width=700 />
+```bash
+./compile-with-docker.sh Fusion [extra CMake options]
+```
 
-### Docker build method
+### Documented Preset
 
-If you have docker installed you can use [compile-with-docker.bat](./compile-with-docker.bat) (Windows) or [compile-with-docker.sh](./compile-with-docker.sh) (Linux/Mac), the output files are created in `compiled-firmware` folder. This method gives significantly smaller binaries, I've seen differences up to 1kb, so it can fit more functionalities this way. The challenge can be (or not) installing docker itself. 
+- **Fusion**
 
-> [!TIP]
-> On Linux/Mac, you may need to uncomment and customize the DOCKER_NETWORK environment variable at the beginning of the [compile-with-docker.sh](./compile-with-docker.sh) script. Note: this can introduce security risks by removing network isolation. However, if you encounter issues and are using a specific network environment (with a proxy or a firewall), this may help.
+### Examples
 
-### Windows environment build method
+Build Fusion:
 
-1. Open windows command line and run:
-    ```
-    winget install -e -h git.git Python.Python.3.8 GnuWin32.Make
-    winget install -e -h Arm.GnuArmEmbeddedToolchain -v "10 2021.10"
-    ```
-2. Close command line, open a new one and run:
-    ```
-    pip install --user --upgrade pip
-    pip install crcmod
-    mkdir c:\projects & cd /D c:/projects
-    git clone https://github.com/armel/uv-k5-firmware-custom.git
-    ```
-3. From now on you can build the firmware by going to `c:\projects\uv-k5-firmware-custom` and running `win_make.bat` or by running a command line:
-    ```
-    cd /D c:\projects\uv-k5-firmware-custom
-    win_make.bat
-    ```
-4. To reset the repository and pull new changes run (!!! it will delete all your changes !!!):
-    ```
-    cd /D c:\projects\uv-k5-firmware-custom
-    git reset --hard & git clean -fd & git pull
-    ```
+```bash
+./compile-with-docker.sh Fusion
+```
 
-I've left some notes in the win_make.bat file to maybe help with stuff.
+### Passing Additional CMake Options
+
+You can pass extra configuration options after the preset name.  
+These are forwarded directly to `cmake --preset` inside the container.
+
+Examples:
+
+```bash
+./compile-with-docker.sh Fusion -DENABLE_SPECTRUM=ON
+./compile-with-docker.sh Fusion -DENABLE_FEAT_F4HWN_GAME=ON -DENABLE_NOAA=ON
+./compile-with-docker.sh Fusion -DSQL_TONE=600
+```
+
+### Notes
+
+- The first run may take a few minutes while Docker builds the base image.
+- Each build runs inside Docker, so your host environment remains clean.
+
+## Flashing the Firmware with UVTools2
+
+You can flash the UV-K5 V3 and UV-K1 directly from your web browser using the cross-platform WebSerial-based [UVTools2](https://armel.github.io/uvtools2/).
+
+It works on Chrome, Chromium and Edge (desktop versions), and does not require installing any driver or software on your computer.
+
+## Steps to flash the firmware
+
+- Open UVTools2 in [flash](https://armel.github.io/uvtools2/?mode=flash) mode (or click the Flash Firmware tab).
+- Connect your radio to your computer using a compatible USB programming cable (USB-C or Baofeng/Kenwood like double jack USB cable).
+- Make sure your radio is in **DFU mode (flash mode)**.
+- Select the firmware .bin file on your computer. 
+- Click on `Flash Firmware`, then select the serial port associated with your radio.
+- The progress bar will guide you through the flashing steps.
+
+Once finished, your radio restart with the new firmware.
+
+## Steps to dump or restore calibration data
+
+[UVTools2](https://armel.github.io/uvtools2/) can also dump and restore calibration data, which is highly recommended. It’s best to create a dump right after installing F4HWN firmware, and to restore it before installing another firmware (or when returning to the stock firmware, for example).
+
+### Dump
+
+- Open UVTools2 in [dump](https://armel.github.io/uvtools2/?mode=dump) mode (or click the Dump Calib tab).
+- Power on your radio in **normal mode**.
+- Click `Dump Calibration Data`.
+
+When the process is complete, click `Download calibration.dat` to save the file to your computer.
+
+> [!NOTE]
+> A good practice is to rename your calibration file using the serial number of your radio, which you can find on the label on the back of the device once you remove the battery. This helps avoid mixing up calibration files when you own multiple units.
+
+### Restore
+
+- Open UVTools2 in [restore](https://armel.github.io/uvtools2/?mode=restore) mode (or click the Restore Calib tab).
+- Power on your radio in **normal mode**.
+- Select your calibration.dat file on your computer.
+
+Click `Restore Calibration Data` and wait until the process fully completes.
+
+## Other sources of information
+
+- [k1-teardown](https://github.com/armel/k1-teardown) 
 
 ## Credits
 
 Many thanks to various people:
 
+* [Muzkr](https://github.com/muzkr)
+* [Mrkusypl](https://github.com/mrkusypl)
+* [Andrej](https://github.com/Tunas1337)
 * [Egzumer](https://github.com/egzumer)
 * [OneOfEleven](https://github.com/OneOfEleven)
 * [DualTachyon](https://github.com/DualTachyon)
 * [Mikhail](https://github.com/fagci)
-* [Andrej](https://github.com/Tunas1337)
 * [Manuel](https://github.com/manujedi)
 * @wagner
 * @Lohtse Shar
@@ -295,11 +353,6 @@ Many thanks to various people:
 * [OneOfEleven](https://github.com/OneOfEleven)
 * @d1ced95
 * and others I forget
-
-## Other sources of information
-
-[ludwich66 - Quansheng UV-K5 Wiki](https://github.com/ludwich66/Quansheng_UV-K5_Wiki/wiki)<br>
-[amnemonic - tools and sources of information](https://github.com/amnemonic/Quansheng_UV-K5_Firmware)
 
 ## License
 
@@ -317,26 +370,3 @@ You may obtain a copy of the License at
     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
     See the License for the specific language governing permissions and
     limitations under the License.
-
-## Example changes/updates
-
-Here are a few photos.
-
-|![Main Only and Dual RX Respond](https://github.com/armel/uv-k5-firmware-custom-feat-F4HWN/blob/main/photos/IMG_3291.png)|
-|:--:|
-| Main Only and Dual RX Respond |
-
-
-|![Main Only and Dual RX Respond (invert mode)](https://github.com/armel/uv-k5-firmware-custom-feat-F4HWN/blob/main/photos/IMG_3290.png)|
-|:--:|
-| Main Only and Dual RX Respond (invert mode) |
-
-
-|![Some new menu entries](https://github.com/armel/uv-k5-firmware-custom-feat-F4HWN/blob/main/photos/IMG_3292.png)|
-|:--:|
-| Some new menu entries |
-
-
-|![Main Only and Spectrum Analyzer](https://github.com/armel/uv-k5-firmware-custom-feat-F4HWN/blob/main/photos/IMG_3293.png)|
-|:--:|
-| Main Only and Spectrum Analyzer |
