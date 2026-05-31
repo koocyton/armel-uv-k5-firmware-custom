@@ -574,6 +574,9 @@ void SI47XX_ApplyRxBfo(int16_t hz);
 void SI47XX_SetAMBandwidth(uint8_t index);
 void SI47XX_SetSeekFmLimits(uint16_t bottom, uint16_t top);
 void SI47XX_SetSeekAmLimits(uint16_t bottom, uint16_t top);
+/* AM/SSB audio profiles (k5 si4732) */
+void SI47XX_ApplyAmAudioProfile(uint8_t bwIndex);
+void SI47XX_ApplySsbAudioProfile(void);
 extern SI47XX_MODE si4732mode;
 extern RSQStatus rsqStatus;
 extern uint16_t siCurrentFreq;

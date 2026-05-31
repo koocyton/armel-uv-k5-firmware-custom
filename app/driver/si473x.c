@@ -14,6 +14,10 @@
 #endif
 static const uint8_t SI47XX_I2C_ADDR = (SI47XX_I2C_ADDR_7BIT << 1) | 0U;
 
+/* k5 RST_HIGH/RST_LOW naming vs pin level — see si4732_rst.h */
+#define RST_HIGH SI47XX_RST_ASSERT
+#define RST_LOW  SI47XX_RST_RELEASE
+
 RSQStatus rsqStatus;
 uint16_t divider = 1000;
 
@@ -61,6 +65,64 @@ static void sendProperty(uint16_t prop, uint16_t parameter)
                        (uint8_t)(parameter >> 8), (uint8_t)(parameter & 0xff) };
     SI47XX_WriteBuffer(tmp, 6);
     SYSTEM_DelayMs(2);
+}
+
+#define FM_TUNE_STC_MS 80U
+
+static void waitForTuneStc(uint16_t timeoutMs)
+{
+    for (uint16_t t = 0; t < timeoutMs; t++) {
+        uint8_t st = 0;
+        SI47XX_ReadBuffer(&st, 1);
+        if (st & STATUS_STCINT)
+            return;
+        SYSTEM_DelayMs(1);
+    }
+}
+
+static void ackTuneStc(void)
+{
+    uint8_t cmd[2];
+    uint8_t respLen;
+
+    if (si4732mode == SI47XX_FM) {
+        cmd[0] = CMD_FM_TUNE_STATUS;
+        respLen = 7;
+    } else if (isAmFamilyStatic()) {
+        cmd[0] = CMD_AM_TUNE_STATUS;
+        respLen = 7;
+    } else {
+        return;
+    }
+    cmd[1] = TUNE_STATUS_ARG1_CLEAR_INT;
+    waitToSend();
+    SI47XX_WriteBuffer(cmd, 2);
+    waitToSend();
+    {
+        uint8_t resp[7];
+        SI47XX_ReadBuffer(resp, respLen);
+    }
+}
+
+static void SI47XX_ApplyFmAudioProfile(void)
+{
+#ifndef SI47XX_FM_DEEMPH_75
+    sendProperty(PROP_FM_DEEMPHASIS, FLG_DEEMPH_50);
+#else
+    sendProperty(PROP_FM_DEEMPHASIS, FLG_DEEMPH_75);
+#endif
+    sendProperty(PROP_FM_CHANNEL_FILTER, 0);
+    sendProperty(PROP_FM_MAX_TUNE_ERROR, 20);
+    sendProperty(PROP_FM_ANTENNA_INPUT, 0);
+    sendProperty(PROP_FM_BLEND_RSSI_STEREO_THRESHOLD, 49);
+    sendProperty(PROP_FM_BLEND_RSSI_MONO_THRESHOLD, 30);
+    sendProperty(PROP_FM_BLEND_SNR_STEREO_THRESHOLD, 30);
+    sendProperty(PROP_FM_BLEND_SNR_MONO_THRESHOLD, 14);
+    sendProperty(PROP_FM_SOFT_MUTE_SLOPE, 2);
+    sendProperty(PROP_FM_SOFT_MUTE_MAX_ATTENUATION, 10);
+    sendProperty(PROP_FM_SOFT_MUTE_SNR_THRESHOLD, 6);
+    sendProperty(PROP_FM_HICUT_SNR_HIGH_THRESHOLD, 20);
+    sendProperty(PROP_FM_HICUT_SNR_LOW_THRESHOLD, 12);
 }
 
 void SI47XX_ApplyAmAntennaInput(void)
@@ -142,6 +204,8 @@ bool SI47XX_IsSSB(void)
 #define SI473X_PATCH_SIZE   15832U
 #define SI473X_PATCH_EEPROM (SI4732_VIRT_EEPROM_SIZE - SI473X_PATCH_SIZE)
 
+#define SI47XX_SSB_AVC_MAX_GAIN 0x7800U
+
 static uint32_t Read_FreqSaved(void)
 {
     if (isAmFamilyStatic()) {
@@ -171,6 +235,7 @@ void SI47XX_FirstPowerUp(uint16_t freq_10k)
     AUDIO_AudioPathOn();
 #endif
     setVolume(63);
+    SI47XX_ApplyFmAudioProfile();
     SI47XX_SetSeekFmLimits(8750, 10800);
     enableRDS();
     SI47XX_SetFreq(freq_10k);
@@ -178,7 +243,7 @@ void SI47XX_FirstPowerUp(uint16_t freq_10k)
 
 void SI47XX_PowerUp()
 {
-    SI47XX_RST_ASSERT;
+    RST_HIGH;
 
     uint8_t cmd[3] = { CMD_POWER_UP, FLG_XOSCEN | FUNC_FM, OUT_ANALOG };
     if (isAmFamilyStatic()) {
@@ -192,15 +257,19 @@ void SI47XX_PowerUp()
     setVolume(63);
 
     if (si4732mode == SI47XX_FM) {
+        SI47XX_ApplyFmAudioProfile();
         enableRDS();
-    } else if (isAmFamilyStatic()) {
+    } else if (si4732mode == SI47XX_AM) {
         SI47XX_ApplyAmAntennaInput();
-        SI47XX_SetAutomaticGainControl(1, 0);
-        sendProperty(PROP_AM_SOFT_MUTE_MAX_ATTENUATION, 0);
-        sendProperty(PROP_AM_AUTOMATIC_VOLUME_CONTROL_MAX_GAIN, 0x7800);
+        SI47XX_ApplyAmAudioProfile(2);
         SI47XX_SetSeekAmLimits(500, 30000);
     }
     SI47XX_SetFreq(Read_FreqSaved() / divider);
+}
+
+static uint8_t SI47XX_SsbSidebandCutoff(uint8_t audiobw)
+{
+    return (audiobw == 0U || audiobw == 4U || audiobw == 5U) ? 0U : 1U;
 }
 
 static void SI47XX_SsbSetup(uint8_t AUDIOBW, uint8_t SBCUTFLT, uint8_t AVC_DIVIDER,
@@ -209,6 +278,15 @@ static void SI47XX_SsbSetup(uint8_t AUDIOBW, uint8_t SBCUTFLT, uint8_t AVC_DIVID
     uint8_t lo = (AUDIOBW & 0x0F) | ((SBCUTFLT & 0x0F) << 4);
     uint8_t hi = (AVC_DIVIDER & 0x0F) | (AVCEN ? 0x10U : 0) | (SMUTESEL ? 0x20U : 0) | (DSP_AFCDIS ? 0x80U : 0);
     sendProperty(PROP_SSB_MODE, (uint16_t)lo | ((uint16_t)hi << 8));
+}
+
+static void SI47XX_SsbRunPowerUp(void)
+{
+    uint8_t cmd[3] = { CMD_POWER_UP, FLG_XOSCEN | FUNC_AM, OUT_ANALOG };
+    waitToSend();
+    SI47XX_WriteBuffer(cmd, 3);
+    SYSTEM_DelayMs(500);
+    waitToSend();
 }
 
 static bool SI47XX_downloadPatch(void)
@@ -231,22 +309,29 @@ static bool SI47XX_downloadPatch(void)
 
 static void SI47XX_PatchPowerUp(void)
 {
-    SI47XX_RST_ASSERT;
+    RST_HIGH;
     uint8_t cmd[3] = { CMD_POWER_UP, 0x31, OUT_ANALOG };
     waitToSend();
     SI47XX_WriteBuffer(cmd, 3);
-    SYSTEM_DelayMs(280);
+    SYSTEM_DelayMs(500);
 
     SI47XX_downloadPatch();
+    SYSTEM_DelayMs(50);
+    SI47XX_SsbRunPowerUp();
+
     SI47XX_ApplyAmAntennaInput();
-    SI47XX_SsbSetup(1, 2, 0, 1, 0, 1);
+    SI47XX_SsbSetup(1, SI47XX_SsbSidebandCutoff(1), 0, 1, 0, 1);
 
     AUDIO_AudioPathOn_FM();
-    setVolume(63);
+    SI47XX_SetSeekAmLimits(500, 30000);
     SI47XX_SetFreq(Read_FreqSaved() / divider);
-    sendProperty(PROP_SSB_SOFT_MUTE_MAX_ATTENUATION, 8);
-    sendProperty(PROP_SSB_SOFT_MUTE_SNR_THRESHOLD, 8);
-    sendProperty(PROP_AM_AUTOMATIC_VOLUME_CONTROL_MAX_GAIN, 0x5000);
+    {
+        uint8_t bfoBuf[4];
+        PY25Q16_ReadBuffer(FM_PY_SI4732_AM_EXT_ADDR, bfoBuf, 4);
+        SI47XX_ApplyRxBfo((int16_t)((uint16_t)bfoBuf[2] | ((uint16_t)bfoBuf[3] << 8)));
+    }
+    SI47XX_SetAutomaticGainControl(0, 0);
+    SI47XX_ApplySsbAudioProfile();
 }
 
 void SI47XX_PowerDown()
@@ -261,7 +346,7 @@ void SI47XX_PowerDown()
     waitToSend();
     SI47XX_WriteBuffer(cmd, 1);
     SYSTICK_DelayUs(10);
-    SI47XX_RST_RELEASE;
+    RST_LOW;
 }
 
 void SI47XX_SwitchMode(SI47XX_MODE mode)
@@ -296,16 +381,15 @@ void SI47XX_SetFreq(uint16_t freq)
     } else if (SI47XX_IsSSB()) {
         cmd[0] = CMD_AM_TUNE_FREQ;
         size = 6;
-        if (si4732mode == SI47XX_USB)
-            cmd[1] = 0x80;
-        else
-            cmd[1] = 0x40;
-        if (freq > 1800)
+        cmd[1] = (si4732mode == SI47XX_USB) ? 0x80U : 0x40U;
+        if (freq > 1800) {
+            cmd[4] = 0;
             cmd[5] = 1;
+        }
     } else if (si4732mode == SI47XX_CW) {
         cmd[0] = CMD_AM_TUNE_FREQ;
         size = 6;
-        cmd[1] = 0x40;
+        cmd[1] = 0x80U;
         if (freq > 1800)
             cmd[5] = 1;
     }
@@ -313,7 +397,8 @@ void SI47XX_SetFreq(uint16_t freq)
     waitToSend();
     SI47XX_WriteBuffer(cmd, size);
     siCurrentFreq = freq;
-    SYSTEM_DelayMs(30);
+    waitForTuneStc(FM_TUNE_STC_MS);
+    ackTuneStc();
 }
 
 void SI47XX_SetSeekFmLimits(uint16_t bottom, uint16_t top)
@@ -357,17 +442,58 @@ void SI47XX_ApplyRxBfo(int16_t hz)
     sendProperty(PROP_SSB_BFO, (uint16_t)hz);
 }
 
-static const uint8_t am_bw_amchflt[] = { FLG_AMCHFLT_1KHZ, FLG_AMCHFLT_1KHZ, FLG_AMCHFLT_1KHZ8, FLG_AMCHFLT_2KHZ5,
-                                         FLG_AMCHFLT_3KHZ, FLG_AMCHFLT_4KHZ, FLG_AMCHFLT_6KHZ };
+static const uint8_t am_bw_amchflt[] = {
+    FLG_AMCHFLT_1KHZ,
+    FLG_AMCHFLT_1KHZ,
+    FLG_AMCHFLT_1KHZ8,
+    FLG_AMCHFLT_2KHZ5,
+    FLG_AMCHFLT_3KHZ,
+    FLG_AMCHFLT_4KHZ,
+    FLG_AMCHFLT_6KHZ,
+};
 static const uint8_t am_bw_ssb_audiobw[] = { 4, 5, 0, 1, 2, 3, 3 };
+
+#define AM_CHANNEL_FILTER_AMPLFLT (1U << 8)
 
 void SI47XX_SetAMBandwidth(uint8_t index)
 {
     if (index > 6)
         index = 6;
     if (si4732mode == SI47XX_AM) {
-        sendProperty(PROP_AM_CHANNEL_FILTER, (uint16_t)am_bw_amchflt[index] | (0U << 8));
+        sendProperty(PROP_AM_CHANNEL_FILTER, (uint16_t)am_bw_amchflt[index] | AM_CHANNEL_FILTER_AMPLFLT);
     } else if (SI47XX_IsSSB() || si4732mode == SI47XX_CW) {
-        SI47XX_SsbSetup(am_bw_ssb_audiobw[index], 2, 0, 1, 0, 1);
+        uint8_t abw = am_bw_ssb_audiobw[index];
+        SI47XX_SsbSetup(abw, SI47XX_SsbSidebandCutoff(abw), 0, 1, 0, 1);
     }
+}
+
+void SI47XX_ApplySsbAudioProfile(void)
+{
+    if (!SI47XX_IsSSB() && si4732mode != SI47XX_CW)
+        return;
+    setVolume(63);
+    SI47XX_Mute(false);
+    SI47XX_SetAutomaticGainControl(0, 0);
+    sendProperty(PROP_AM_AUTOMATIC_VOLUME_CONTROL_MAX_GAIN, SI47XX_SSB_AVC_MAX_GAIN);
+    sendProperty(PROP_SSB_SOFT_MUTE_MAX_ATTENUATION, 8);
+    sendProperty(PROP_SSB_SOFT_MUTE_SNR_THRESHOLD, 8);
+}
+
+void SI47XX_ApplyAmAudioProfile(uint8_t bwIndex)
+{
+    if (si4732mode != SI47XX_AM)
+        return;
+    if (bwIndex > 6)
+        bwIndex = 6;
+#ifndef SI47XX_FM_DEEMPH_75
+    sendProperty(PROP_AM_DEEMPHASIS, FLG_DEEMPH_50);
+#else
+    sendProperty(PROP_AM_DEEMPHASIS, FLG_DEEMPH_75);
+#endif
+    sendProperty(PROP_AM_SOFT_MUTE_SLOPE, 2);
+    sendProperty(PROP_AM_SOFT_MUTE_MAX_ATTENUATION, 8);
+    sendProperty(PROP_AM_SOFT_MUTE_SNR_THRESHOLD, 8);
+    sendProperty(PROP_AM_AUTOMATIC_VOLUME_CONTROL_MAX_GAIN, 0x5000);
+    SI47XX_SetAutomaticGainControl(0, 0);
+    SI47XX_SetAMBandwidth(bwIndex);
 }

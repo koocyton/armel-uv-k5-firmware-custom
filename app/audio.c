@@ -33,6 +33,24 @@
 #include "settings.h"
 #include "ui/ui.h"
 
+#ifdef ENABLE_FM_SI4732
+static void AUDIO_RestoreSpeakerPath(void)
+{
+    if (gFmRadioMode) {
+        if (gEnableSpeaker)
+            AUDIO_AudioPathOn_FM();
+        else
+            AUDIO_AudioPathOff_FM();
+        return;
+    }
+
+    if (gEnableSpeaker)
+        AUDIO_AudioPathOn();
+    else
+        AUDIO_AudioPathOff();
+}
+#endif
+
 static const uint16_t BEEP_Classic_array[][3] = { /* Tone    Duration    Repeats  */                                     
     [BEEP_NONE]                                   = {0,      0,          0      },
     [BEEP_1KHZ_60MS_OPTIONAL]                     = {1000,   60,         1      },
@@ -73,6 +91,11 @@ void AUDIO_PlayBeep(BEEP_Type_t Beep)
 #ifdef ENABLE_FMRADIO
     if (gFmRadioMode)
         BK1080_Mute(true);
+#endif
+
+#ifdef ENABLE_FM_SI4732
+    if (gFmRadioMode)
+        AUDIO_AudioPathOff_FM();
 #endif
 
     AUDIO_AudioPathOff();
@@ -119,8 +142,12 @@ void AUDIO_PlayBeep(BEEP_Type_t Beep)
         SYSTEM_DelayMs(10);
 #endif
 
+#ifdef ENABLE_FM_SI4732
+    AUDIO_RestoreSpeakerPath();
+#else
     if (gEnableSpeaker)
         AUDIO_AudioPathOn();
+#endif
 
 #ifdef ENABLE_FMRADIO
     if (isFmRadio)
@@ -304,8 +331,12 @@ void AUDIO_PlaySingleVoice(bool bFlag)
                     BK1080_Mute(false);
             #endif
 
+#ifdef ENABLE_FM_SI4732
+            AUDIO_RestoreSpeakerPath();
+#else
             if (!gEnableSpeaker)
                 AUDIO_AudioPathOff();
+#endif
 
             gVoiceWriteIndex    = 0;
             gVoiceReadIndex     = 0;
@@ -445,8 +476,12 @@ void AUDIO_PlayQueuedVoice(void)
             BK1080_Mute(false);
     #endif
 
+#ifdef ENABLE_FM_SI4732
+    AUDIO_RestoreSpeakerPath();
+#else
     if (!gEnableSpeaker)
         AUDIO_AudioPathOff();
+#endif
 
     #ifdef ENABLE_VOX
         gVoxResumeCountdown = 80;

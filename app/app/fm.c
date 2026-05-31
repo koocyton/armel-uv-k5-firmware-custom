@@ -51,7 +51,39 @@ uint8_t           gFM_ChannelPosition;
 bool              gFM_FoundFrequency;
 uint16_t          gFM_RestoreCountdown_10ms;
 
+/* FM 步进（单位 0.1MHz）：0=0.1, 1=0.5, 2=1.0 */
+static uint8_t gFM_StepIndex = 0;
+static const uint16_t gFM_Step10_Table[] = { 1, 5, 10 };
 
+uint16_t FM_GetFM_Step10(void)
+{
+    const uint8_t idx = (gFM_StepIndex < (uint8_t)ARRAY_SIZE(gFM_Step10_Table)) ? gFM_StepIndex : 0;
+    return gFM_Step10_Table[idx];
+}
+
+static uint16_t gFM_AutoRssiWindow_10ms = 0;
+static uint16_t gFM_AutoRssiNext_10ms = 0;
+
+static void FM_BeginAutoRssiRefresh(void)
+{
+    gFM_AutoRssiWindow_10ms = 30U * 100U;
+    gFM_AutoRssiNext_10ms = 2U * 100U;
+}
+
+void FM_TimeSlice10ms(void)
+{
+    if (gFM_AutoRssiWindow_10ms == 0)
+        return;
+
+    gFM_AutoRssiWindow_10ms--;
+    if (gFM_AutoRssiNext_10ms > 0)
+        gFM_AutoRssiNext_10ms--;
+
+    if (gFM_AutoRssiNext_10ms == 0) {
+        gUpdateDisplay = true;
+        gFM_AutoRssiNext_10ms = 2U * 100U;
+    }
+}
 
 const uint8_t BUTTON_STATE_PRESSED = 1 << 0;
 const uint8_t BUTTON_STATE_HELD = 1 << 1;
@@ -74,6 +106,18 @@ static bool     gFKeyLongPressDone  = false;
 
 static const uint16_t gAM_StepKHzTable[] = { 1, 5, 10, 100, 1000 };
 #define AM_STEP_COUNT ((unsigned)ARRAY_SIZE(gAM_StepKHzTable))
+
+static void FM_AM_ApplyDefaultBwForMode(void)
+{
+    if (si4732mode == SI47XX_AM) {
+        gAM_BfoHz = 0;
+    } else if (si4732mode == SI47XX_CW) {
+        gAM_BW_Index = 2;
+        gAM_BfoHz = 0;
+    } else if (si4732mode == SI47XX_USB || si4732mode == SI47XX_LSB) {
+        gAM_BW_Index = 3;
+    }
+}
 
 uint16_t FM_GetAM_StepKHz(void)
 {
@@ -106,6 +150,8 @@ static void FM_ApplyAMOptions(void)
     SI47XX_SetAMLna(gAM_LnaIndex);
     SI47XX_SetAMBandwidth(gAM_BW_Index);
     SI47XX_ApplyRxBfo(gAM_BfoHz);
+    if (SI47XX_IsSSB() || si4732mode == SI47XX_CW)
+        SI47XX_ApplySsbAudioProfile();
 }
 
 bool FM_IsAMMode(void)
@@ -393,14 +439,20 @@ static void Key_DIGITS(KEY_Code_t Key, uint8_t state)
             }
 #endif
             if (gInputBoxIndex == 1) {
-#ifndef ENABLE_FM_SI4732
-                if (gInputBox[0] > 1) {
+#ifdef ENABLE_FM_SI4732
+                if (SI47XX_IsAMFamily()) {
+                    if (gInputBox[0] > 2) {
+                        gInputBox[1] = gInputBox[0];
+                        gInputBox[0] = 0;
+                        gInputBoxIndex = 2;
+                    }
+                } else if (gInputBox[0] > 1) {
                     gInputBox[1] = gInputBox[0];
                     gInputBox[0] = 0;
                     gInputBoxIndex = 2;
                 }
 #else
-                if (!SI47XX_IsAMFamily() && gInputBox[0] > 1) {
+                if (gInputBox[0] > 1) {
                     gInputBox[1] = gInputBox[0];
                     gInputBox[0] = 0;
                     gInputBoxIndex = 2;
@@ -539,17 +591,18 @@ static void Key_FUNC(KEY_Code_t Key, uint8_t state)
                         (si4732mode == SI47XX_LSB) ? SI47XX_USB :
                         (si4732mode == SI47XX_USB) ? SI47XX_CW : SI47XX_AM;
                     SI47XX_SwitchMode(next);
+                    FM_AM_ApplyDefaultBwForMode();
                     SI47XX_SetFreq(gAM_FrequencyKHz);
                     FM_ApplyAMOptions();
                     gUpdateStatus = true;
-                } else {
-                    gEeprom.FM_IsMrMode = !gEeprom.FM_IsMrMode;
-                    if (!FM_ConfigureChannelState()) {
-                        BK1080_SetFrequency(gEeprom.FM_FrequencyPlaying, gEeprom.FM_Band/*, gEeprom.FM_Space*/);
-                        gRequestSaveFM = true;
-                    } else
-                        gBeepToPlay = BEEP_500HZ_60MS_DOUBLE_BEEP_OPTIONAL;
+                    break;
                 }
+                gEeprom.FM_IsMrMode = !gEeprom.FM_IsMrMode;
+                if (!FM_ConfigureChannelState()) {
+                    BK1080_SetFrequency(gEeprom.FM_FrequencyPlaying, gEeprom.FM_Band/*, gEeprom.FM_Space*/);
+                    gRequestSaveFM = true;
+                } else
+                    gBeepToPlay = BEEP_500HZ_60MS_DOUBLE_BEEP_OPTIONAL;
                 break;
 
             case KEY_STAR:
@@ -636,7 +689,7 @@ static void Key_EXIT(uint8_t state)
         }
         else {
 #ifdef ENABLE_FM_SI4732
-            if (SI47XX_IsAMFamily() && gInputBoxIndex >= 3) {
+            if (SI47XX_IsAMFamily() && gInputBoxIndex == 5) {
                 gAM_FrequencyKHz = FM_AM_ParseInputFreq();
                 FM_SaveAMFreqToEeprom();
                 gInputBoxIndex = 0;
@@ -764,20 +817,10 @@ static void Key_UP_DOWN(uint8_t state, int8_t Step)
 
 #ifdef ENABLE_FM_SI4732
     if (SI47XX_IsAMFamily()) {
-        if (gAM_OptionFocus == 3) {
-            gAM_BfoHz += (int16_t)Step;
-            SI47XX_ApplyRxBfo(gAM_BfoHz);
-            FM_SaveAMFreqToEeprom();
-            gRequestDisplayScreen = DISPLAY_FM;
-            gUpdateStatus = true;
-            return;
-        }
-        uint16_t amstep = FM_GetAM_StepKHz();
-        int32_t next = (int32_t)gAM_FrequencyKHz + (int32_t)Step * (int32_t)amstep;
-        if (next < 500)
-            next = 30000;
-        else if (next > 30000)
-            next = 500;
+        uint16_t step = FM_GetAM_StepKHz();
+        int32_t next = (int32_t)gAM_FrequencyKHz + (int32_t)Step * (int32_t)step;
+        if (next < 500) next = 30000;
+        else if (next > 30000) next = 500;
         gAM_FrequencyKHz = (uint16_t)next;
         FM_SaveAMFreqToEeprom();
         SI47XX_SetFreq(gAM_FrequencyKHz);
@@ -814,7 +857,8 @@ static void Key_UP_DOWN(uint8_t state, int8_t Step)
         gEeprom.FM_FrequencyPlaying = gFM_Channels[Channel];
     }
     else {
-        uint16_t Frequency = gEeprom.FM_SelectedFrequency + Step;
+        const uint16_t step10 = FM_GetFM_Step10();
+        uint16_t Frequency = (uint16_t)(gEeprom.FM_SelectedFrequency + Step * (int16_t)step10);
 
         Frequency = FM_WrapFrequency(Frequency);
 
@@ -830,9 +874,46 @@ Bail:
     gRequestDisplayScreen = DISPLAY_FM;
 }
 
+#ifdef ENABLE_FM_SI4732
+static void FM_AM_AdjustFocusedOption(int8_t step)
+{
+    switch (gAM_OptionFocus) {
+    case 0:
+        if (step > 0) gAM_LnaIndex = (uint8_t)((gAM_LnaIndex + 1) % 6);
+        else gAM_LnaIndex = (uint8_t)((gAM_LnaIndex + 5) % 6);
+        FM_ApplyAMOptions();
+        FM_SaveAMFreqToEeprom();
+        break;
+    case 1:
+        if (step > 0) gAM_BW_Index = (uint8_t)((gAM_BW_Index + 1) % 7);
+        else gAM_BW_Index = (uint8_t)((gAM_BW_Index + 6) % 7);
+        FM_ApplyAMOptions();
+        FM_SaveAMFreqToEeprom();
+        break;
+    case 2:
+        if (step > 0) gAM_StepIndex = (uint8_t)((gAM_StepIndex + 1) % AM_STEP_COUNT);
+        else gAM_StepIndex = (uint8_t)((gAM_StepIndex + AM_STEP_COUNT - 1) % AM_STEP_COUNT);
+        FM_SaveAMFreqToEeprom();
+        break;
+    case 3:
+    default:
+        gAM_BfoHz += (int16_t)(step * 5);
+        SI47XX_ApplyRxBfo(gAM_BfoHz);
+        FM_SaveAMFreqToEeprom();
+        break;
+    }
+    gRequestDisplayScreen = DISPLAY_FM;
+    gUpdateStatus = true;
+}
+#endif
+
 void FM_ProcessKeys(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 {
     uint8_t state = bKeyPressed + 2 * bKeyHeld;
+
+    if (bKeyPressed) {
+        FM_BeginAutoRssiRefresh();
+    }
 
     switch (Key) {
         case KEY_0...KEY_9:
@@ -841,27 +922,18 @@ void FM_ProcessKeys(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
         case KEY_STAR:
 #ifdef ENABLE_FM_SI4732
             if (SI47XX_IsAMFamily() && gInputBoxIndex == 0 && state == BUTTON_EVENT_SHORT) {
-                switch (gAM_OptionFocus) {
-                case 0:
-                    gAM_LnaIndex = (uint8_t)((gAM_LnaIndex + 1) % 6);
-                    FM_ApplyAMOptions();
-                    break;
-                case 1:
-                    gAM_BW_Index = (gAM_BW_Index + 1) % 7;
-                    FM_ApplyAMOptions();
-                    break;
-                case 2:
-                    gAM_StepIndex = (gAM_StepIndex + 1) % AM_STEP_COUNT;
-                    break;
-                case 3:
-                default:
-                    break;
-                }
-                if (gAM_OptionFocus != 3)
-                    FM_SaveAMFreqToEeprom();
-                gUpdateStatus         = true;
+                gAM_StepIndex = (uint8_t)((gAM_StepIndex + 1) % AM_STEP_COUNT);
+                FM_SaveAMFreqToEeprom();
+                gUpdateStatus = true;
                 gRequestDisplayScreen = DISPLAY_FM;
-                gBeepToPlay           = BEEP_1KHZ_60MS_OPTIONAL;
+                gBeepToPlay = BEEP_1KHZ_60MS_OPTIONAL;
+                break;
+            }
+            if (gInputBoxIndex == 0 && state == BUTTON_EVENT_SHORT && gFM_ScanState == FM_SCAN_OFF) {
+                gFM_StepIndex = (uint8_t)((gFM_StepIndex + 1) % (uint8_t)ARRAY_SIZE(gFM_Step10_Table));
+                gUpdateStatus = true;
+                gRequestDisplayScreen = DISPLAY_FM;
+                gBeepToPlay = BEEP_1KHZ_60MS_OPTIONAL;
                 break;
             }
 #endif
@@ -900,6 +972,7 @@ void FM_ProcessKeys(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
                             gAM_FrequencyKHz = 500;
                         if (gAM_FrequencyKHz > 30000)
                             gAM_FrequencyKHz = 30000;
+                        FM_AM_ApplyDefaultBwForMode();
                         FM_SaveAMFreqToEeprom();
                         SI47XX_SetFreq(gAM_FrequencyKHz);
                         FM_ApplyAMOptions();
@@ -912,6 +985,7 @@ void FM_ProcessKeys(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
                         SI47XX_MODE next = (si4732mode == SI47XX_USB) ? SI47XX_LSB :
                             (si4732mode == SI47XX_LSB) ? SI47XX_CW : SI47XX_USB;
                         SI47XX_SwitchMode(next);
+                        FM_AM_ApplyDefaultBwForMode();
                         SI47XX_SetFreq(gAM_FrequencyKHz);
                         FM_ApplyAMOptions();
                         gUpdateStatus = true;
@@ -940,6 +1014,7 @@ void FM_ProcessKeys(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
                         UI_DisplayFmWait();
                         ST7565_BlitFullScreen();
                         SI47XX_SwitchMode(SI47XX_USB);
+                        FM_AM_ApplyDefaultBwForMode();
                         SI47XX_SetFreq(gAM_FrequencyKHz);
                         FM_ApplyAMOptions();
                         gUpdateStatus         = true;
@@ -966,6 +1041,19 @@ void FM_ProcessKeys(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
             break;
         case KEY_SIDE1:
         case KEY_SIDE2:
+#ifdef ENABLE_FM_SI4732
+            if (SI47XX_IsAMFamily()) {
+                if (gInputBoxIndex == 0 && (state == BUTTON_EVENT_SHORT || state == BUTTON_EVENT_HELD)) {
+                    const int8_t step = (Key == KEY_SIDE1) ? 1 : -1;
+                    FM_AM_AdjustFocusedOption(step);
+                    gBeepToPlay = BEEP_1KHZ_60MS_OPTIONAL;
+                    break;
+                }
+                if (!bKeyHeld && bKeyPressed)
+                    gBeepToPlay = BEEP_500HZ_60MS_DOUBLE_BEEP_OPTIONAL;
+                break;
+            }
+#endif
             if (state != BUTTON_EVENT_PRESSED) {
                 gBeepToPlay = BEEP_500HZ_60MS_DOUBLE_BEEP_OPTIONAL;
                 HideFKeyIcon();
@@ -1037,6 +1125,8 @@ void FM_Start(void)
 #endif
 
     gUpdateStatus        = true;
+    gUpdateDisplay       = true;
+    FM_BeginAutoRssiRefresh();
 
     #ifdef ENABLE_FEAT_F4HWN_RESUME_STATE
         gEeprom.CURRENT_STATE = 3;

@@ -1,4 +1,4 @@
-/* Si4732 reset: active-low on pin. Idle = released (high). */
+/* Si4732 reset: active-low. Idle = released (pin high). K1: PF4; K5: PB15. */
 #ifndef DRIVER_SI4732_RST_H
 #define DRIVER_SI4732_RST_H
 
@@ -9,8 +9,7 @@
 #define SI4732_RST_PIN GPIO_MAKE_PIN(GPIOF, LL_GPIO_PIN_4)
 #endif
 
-/* Match k5 naming: RST_HIGH in original code = assert reset (pin low). */
-#define SI47XX_RST_ASSERT   GPIO_ResetOutputPin(SI4732_RST_PIN)
-#define SI47XX_RST_RELEASE  GPIO_SetOutputPin(SI4732_RST_PIN)
+#define SI47XX_RST_ASSERT   GPIO_ResetOutputPin(SI4732_RST_PIN)  /* pin low  = chip active (k5 RST_HIGH) */
+#define SI47XX_RST_RELEASE  GPIO_SetOutputPin(SI4732_RST_PIN)    /* pin high = chip in reset (k5 RST_LOW) */
 
 #endif

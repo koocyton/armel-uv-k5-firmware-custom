@@ -56,6 +56,11 @@ void    FM_ProcessKeys(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld);
 
 void    FM_Play(void);
 void    FM_Start(void);
+void    FM_TimeSlice10ms(void);
+
+#if defined(ENABLE_FMRADIO)
+uint16_t FM_GetFM_Step10(void);
+#endif
 
 #if defined(ENABLE_FMRADIO) && defined(ENABLE_FM_SI4732)
 #include <stdint.h>

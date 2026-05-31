@@ -1436,6 +1436,11 @@ void APP_TimeSlice10ms(void)
         return;
 #endif
 
+#ifdef ENABLE_FMRADIO
+    if (gFmRadioMode)
+        FM_TimeSlice10ms();
+#endif
+
 #if !defined(ENABLE_FEAT_F4HWN) || defined(ENABLE_FEAT_F4HWN_RESCUE_OPS)
     #ifdef ENABLE_FLASHLIGHT
         FlashlightTimeSlice();
