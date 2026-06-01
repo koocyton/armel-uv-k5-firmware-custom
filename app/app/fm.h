@@ -56,6 +56,7 @@ void    FM_ProcessKeys(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld);
 
 void    FM_Play(void);
 void    FM_Start(void);
+void    FM_RestoreAudio(void);
 void    FM_TimeSlice10ms(void);
 
 #if defined(ENABLE_FMRADIO)

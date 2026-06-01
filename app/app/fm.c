@@ -332,6 +332,18 @@ void FM_AudioPathOn(void) {
     gEnableSpeaker = true;
 }
 
+void FM_RestoreAudio(void)
+{
+#ifdef ENABLE_FM_SI4732
+    BK4819_SetAF(BK4819_AF_MUTE);
+    AUDIO_AudioPathOn_FM();
+    BK1080_Mute(false);
+    gEnableSpeaker = true;
+#else
+    FM_AudioPathOn();
+#endif
+}
+
 void FM_PlayAndUpdate(void)
 {
     gFM_ScanState = FM_SCAN_OFF;
@@ -1109,6 +1121,7 @@ void FM_Start(void)
     gFmRadioMode              = true;
     gFM_ScanState             = FM_SCAN_OFF;
     gFM_RestoreCountdown_10ms = 0;
+    g_SquelchLost             = false;
 
 #ifdef ENABLE_FM_SI4732
     AUDIO_AudioPathOff_FM();

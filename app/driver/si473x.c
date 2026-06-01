@@ -14,9 +14,8 @@
 #endif
 static const uint8_t SI47XX_I2C_ADDR = (SI47XX_I2C_ADDR_7BIT << 1) | 0U;
 
-/* k5 RST_HIGH/RST_LOW naming vs pin level — see si4732_rst.h */
-#define RST_HIGH SI47XX_RST_ASSERT
-#define RST_LOW  SI47XX_RST_RELEASE
+#define RST_HIGH SI47XX_RST_RELEASE /* RST high = out of reset */
+#define RST_LOW  SI47XX_RST_ASSERT  /* RST low  = in reset */
 
 RSQStatus rsqStatus;
 uint16_t divider = 1000;
@@ -119,8 +118,8 @@ static void SI47XX_ApplyFmAudioProfile(void)
     sendProperty(PROP_FM_BLEND_SNR_STEREO_THRESHOLD, 30);
     sendProperty(PROP_FM_BLEND_SNR_MONO_THRESHOLD, 14);
     sendProperty(PROP_FM_SOFT_MUTE_SLOPE, 2);
-    sendProperty(PROP_FM_SOFT_MUTE_MAX_ATTENUATION, 10);
-    sendProperty(PROP_FM_SOFT_MUTE_SNR_THRESHOLD, 6);
+    sendProperty(PROP_FM_SOFT_MUTE_MAX_ATTENUATION, 0);
+    sendProperty(PROP_FM_SOFT_MUTE_SNR_THRESHOLD, 0);
     sendProperty(PROP_FM_HICUT_SNR_HIGH_THRESHOLD, 20);
     sendProperty(PROP_FM_HICUT_SNR_LOW_THRESHOLD, 12);
 }
@@ -161,9 +160,8 @@ void setVolume(uint8_t volume)
 
 void SI47XX_Mute(bool mute)
 {
-    waitToSend();
-    uint8_t cmd[3] = { 0x40, 0x00, mute ? 0x03U : 0x00U };
-    SI47XX_WriteBuffer(cmd, 3);
+    /* PROP_RX_HARD_MUTE: bit0=RMUTE, bit1=LMUTE (AN332). Was wrongly using CMD_AM_TUNE_FREQ (0x40). */
+    sendProperty(PROP_RX_HARD_MUTE, mute ? 0x0003U : 0x0000U);
 }
 
 static void enableRDS(void)

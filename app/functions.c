@@ -101,8 +101,10 @@ void FUNCTION_Foreground(const FUNCTION_Type_t PreviousFunction)
     }
 
 #if defined(ENABLE_FMRADIO)
-    if (gFmRadioMode)
-        gFM_RestoreCountdown_10ms = fm_restore_countdown_10ms;
+    if (gFmRadioMode) {
+        gFM_RestoreCountdown_10ms = 0;
+        FM_RestoreAudio();
+    }
 #endif
 
 #ifdef ENABLE_DTMF_CALLING

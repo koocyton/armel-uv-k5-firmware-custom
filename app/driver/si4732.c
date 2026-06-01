@@ -12,7 +12,7 @@ uint16_t BK1080_FrequencyDeviation;
 
 void BK1080_Init0(void)
 {
-	SI47XX_RST_RELEASE;
+	SI47XX_RST_ASSERT;
 	si4732mode = SI47XX_FM;
 }
 
@@ -20,16 +20,16 @@ void BK1080_Init(uint16_t freq, uint8_t band)
 {
 	(void)band;
 	if (freq) {
-		/* Reset sequence so Si4732 boots cleanly */
-		SI47XX_RST_RELEASE;
-		SYSTEM_DelayMs(30);
+		/* Reset sequence: hold RST low, then release (Si4732 datasheet) */
 		SI47XX_RST_ASSERT;
+		SYSTEM_DelayMs(30);
+		SI47XX_RST_RELEASE;
 		SYSTEM_DelayMs(80);
 		si4732mode = SI47XX_FM;
 		SI47XX_FirstPowerUp((uint16_t)((unsigned long)freq * 10U));
 	} else {
 		SI47XX_PowerDown();
-		SI47XX_RST_RELEASE;
+		SI47XX_RST_ASSERT;
 	}
 }
 

@@ -119,15 +119,13 @@ void BOARD_GPIO_Init(void)
 #ifdef ENABLE_FMRADIO
     // BK1080 / Si4732 SCK: PF5
     // BK1080 / Si4732 SDA: PF6
-#ifdef ENABLE_FM_SI4732
-    // Si4732 RST (active low): PF4 — override with -DSI4732_RST_PIN=... if needed
-    InitStruct.Pin = LL_GPIO_PIN_6 | LL_GPIO_PIN_5 | LL_GPIO_PIN_4;
-#else
     InitStruct.Pin = LL_GPIO_PIN_6 | LL_GPIO_PIN_5;
-#endif
     LL_GPIO_Init(GPIOF, &InitStruct);
 #ifdef ENABLE_FM_SI4732
-    LL_GPIO_SetOutputPin(GPIOF, LL_GPIO_PIN_4);
+    // Si4732 RST: PA15 (LQFP48 pin 38), active-low — override with -DSI4732_RST_PIN=...
+    InitStruct.Pin = LL_GPIO_PIN_15;
+    LL_GPIO_Init(GPIOA, &InitStruct);
+    LL_GPIO_ResetOutputPin(GPIOA, LL_GPIO_PIN_15);
 #endif
 #endif
 

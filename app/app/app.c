@@ -373,6 +373,15 @@ Skip:
             break;
 
         case END_OF_RX_MODE_END:
+#ifdef ENABLE_FMRADIO
+            if (gFmRadioMode) {
+                gFM_RestoreCountdown_10ms = 0;
+                FM_RestoreAudio();
+                FUNCTION_Select(FUNCTION_FOREGROUND);
+                gUpdateDisplay = true;
+                break;
+            }
+#endif
             RADIO_SetupRegisters(true);
 
             #ifdef ENABLE_NOAA
