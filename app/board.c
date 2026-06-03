@@ -130,10 +130,9 @@ void BOARD_GPIO_Init(void)
     SI4732_RST_ConfigurePin();
     SI4732_RST_HoldAssert();
 #else
-    // Si4732 RST: PA15 (LQFP48 pin 38), active-low
-    InitStruct.Pin = LL_GPIO_PIN_15;
-    LL_GPIO_Init(GPIOA, &InitStruct);
-    LL_GPIO_ResetOutputPin(GPIOA, LL_GPIO_PIN_15);
+    // Si4732 RST: PA15 (LQFP48 pin 38), active-low; hold in reset until BK1080_Init
+    SI4732_RST_ConfigurePin();
+    SI4732_RST_HoldAssert();
 #endif
 #endif
 #endif

@@ -11,7 +11,8 @@ void SI4732_RST_ConfigurePin(void)
     LL_IOP_GRP1_EnableClock(LL_IOP_GRP1_PERIPH_GPIOA);
     LL_GPIO_SetPinMode(GPIOA, LL_GPIO_PIN_14, LL_GPIO_MODE_OUTPUT);
     LL_GPIO_SetPinOutputType(GPIOA, LL_GPIO_PIN_14, LL_GPIO_OUTPUT_PUSHPULL);
-    LL_GPIO_SetPinPull(GPIOA, LL_GPIO_PIN_14, LL_GPIO_PULL_NO);
+    /* Active-low RST: internal pull-up when the mod has no external resistor. */
+    LL_GPIO_SetPinPull(GPIOA, LL_GPIO_PIN_14, LL_GPIO_PULL_UP);
     LL_GPIO_SetPinSpeed(GPIOA, LL_GPIO_PIN_14, LL_GPIO_SPEED_FREQ_VERY_HIGH);
 }
 
@@ -49,7 +50,7 @@ static void SI4732_RST_EnsureGpioOutput(void)
 
     LL_GPIO_SetPinMode(port, pin, LL_GPIO_MODE_OUTPUT);
     LL_GPIO_SetPinOutputType(port, pin, LL_GPIO_OUTPUT_PUSHPULL);
-    LL_GPIO_SetPinPull(port, pin, LL_GPIO_PULL_NO);
+    LL_GPIO_SetPinPull(port, pin, LL_GPIO_PULL_UP);
     LL_GPIO_SetPinSpeed(port, pin, LL_GPIO_SPEED_FREQ_VERY_HIGH);
 }
 

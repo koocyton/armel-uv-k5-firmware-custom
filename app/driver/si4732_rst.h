@@ -1,4 +1,4 @@
-/* Si4732 RST: active-low.
+/* Si4732 RST: active-low; keep driven high (or use internal pull-up) when running.
  * Default K1 LQFP48: PA15 (pin 38).
  * ENABLE_SI4732_RST_ON_PA14: PA14 (pin 37, SWCLK) — build with ENABLE_SWD=OFF.
  * Or override with -DSI4732_RST_PIN=GPIO_MAKE_PIN(...). */

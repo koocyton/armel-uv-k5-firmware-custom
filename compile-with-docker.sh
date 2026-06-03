@@ -4,6 +4,7 @@ set -euo pipefail
 # Repo root: canonical path so Docker Desktop (macOS) matches File Sharing
 # entries like /Users/... — a lowercase /users/... PWD often fails to mount.
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+cd "${REPO_ROOT}"
 
 # ---------------------------------------------
 # Usage:
@@ -50,15 +51,36 @@ export MSYS_NO_PATHCONV=1
 # ---------------------------------------------
 build_preset() {
   local preset="$1"
+  local -a docker_tty=()
+  # -t needs a real TTY; Cursor/CI often fail with "the input device is not a TTY"
+  if [[ -t 0 && -t 1 ]]; then
+    docker_tty=(-it)
+  fi
   echo ""
   echo "=== 🚀 Building preset: ${preset} ==="
   echo "---------------------------------------------"
+  # Pass -D... via "$@" — values like ...PA14=ON contain ">ON", which breaks bash -c "...".
   docker run --rm \
     -u $(id -u):$(id -g) \
-    -it -v "$PWD":/src -w /src "$IMAGE" \
-    bash -c "which arm-none-eabi-gcc && arm-none-eabi-gcc --version && \
-             cmake --preset ${preset} ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"} && \
-             cmake --build --preset ${preset} -j"
+    "${docker_tty[@]}" -v "$REPO_ROOT":/src -w /src "$IMAGE" \
+    bash -c '
+      set -e
+      preset="$1"
+      shift
+      which arm-none-eabi-gcc
+      arm-none-eabi-gcc --version
+      cmake --preset "$preset" "$@"
+      cmake --build --preset "$preset" -j
+    ' _ "${preset}" "${EXTRA_ARGS[@]}"
+
+  local outdir="${REPO_ROOT}/build/${preset}"
+  local fw_bin
+  fw_bin=$(find "${outdir}" -maxdepth 1 -name 'f4hwn.*.bin' -print -quit 2>/dev/null || true)
+  if [[ -z "${fw_bin}" ]]; then
+    echo "❌ No firmware .bin in ${outdir} — build step did not complete."
+    exit 1
+  fi
+  echo "📦 Firmware: ${fw_bin}"
   echo "✅ Done: ${preset}"
 }
 

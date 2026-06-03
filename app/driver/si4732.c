@@ -21,14 +21,10 @@ void BK1080_Init(uint16_t freq, uint8_t band)
 {
 	(void)band;
 	if (freq) {
-#ifdef ENABLE_SI4732_RST_ON_PA14
-		I2C_BusIdle();
-		SI4732_RST_PulseMs(30U, 80U);
-#else
 		SI47XX_HardwareReset();
-#endif
 		si4732mode = SI47XX_FM;
 		SI47XX_FirstPowerUp((uint16_t)((unsigned long)freq * 10U));
+		SI4732_RST_HoldRelease();
 	} else {
 		SI47XX_PowerDown();
 		SI47XX_RST_ASSERT();

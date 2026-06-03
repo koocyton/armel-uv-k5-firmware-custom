@@ -14,47 +14,21 @@
 #endif
 static const uint8_t SI47XX_I2C_ADDR = (SI47XX_I2C_ADDR_7BIT << 1) | 0U;
 
-#define RST_HIGH() SI47XX_RST_RELEASE() /* RST high = out of reset */
-#define RST_LOW()  SI47XX_RST_ASSERT()  /* RST low  = in reset */
-
-/* Si473x-D60 Table 3 (2-wire / I2C): tSRST >= 100 us; SCLK high at RST rising edge. */
-#define SI47XX_T_RST_ASSERT_HOLD_US     1000U /* >= 100 us; FM cold start (direct PA14 RST) */
-#define SI47XX_T_RST_RELEASE_SETTLE_US  100U  /* >> 300 ns before first START after RST^ */
 /* AN332: >= 500 ms after POWER_UP (XOSCEN); K5 uses 500 ms on switch too. */
 #define SI47XX_T_XOSC_STABLE_MS         500U
 #define SI47XX_T_XOSC_STABLE_SWITCH_MS  500U
 
-static void SI47XX_RstAssertHold(void)
-{
-    RST_LOW();
-    SYSTICK_DelayUs(SI47XX_T_RST_ASSERT_HOLD_US);
-}
-
-static void SI47XX_RstRelease(void)
-{
-    I2C_BusIdle();
-    RST_HIGH();
-    SYSTICK_DelayUs(SI47XX_T_RST_RELEASE_SETTLE_US);
-}
-
+/* K5 BK1080_Init: 30 ms RST low + 80 ms high (same for FM/AM/SSB mode changes). */
 void SI47XX_HardwareReset(void)
 {
     I2C_BusIdle();
-    SI47XX_RstAssertHold();
-    SI47XX_RstRelease();
+    SI4732_RST_PulseMs(30U, 80U);
+    I2C_BusIdle();
 }
 
-/* K5 BK1080_Init: 30 ms RST low + 80 ms high. */
 static void SI47XX_HwResetForModeSwitch(void)
 {
-    I2C_BusIdle();
-#ifdef ENABLE_SI4732_RST_ON_PA14
-    SI4732_RST_PulseMs(30U, 80U);
-#else
-    SI47XX_RstAssertHold();
-    SI47XX_RstRelease();
-#endif
-    I2C_BusIdle();
+    SI47XX_HardwareReset();
 }
 
 RSQStatus rsqStatus;
@@ -411,17 +385,21 @@ void SI47XX_SwitchMode(SI47XX_MODE mode)
 
     if (mode == SI47XX_LSB || mode == SI47XX_USB || mode == SI47XX_CW) {
         if (!wasSSB) {
+            SI47XX_PowerDown();
             SI47XX_HwResetForModeSwitch();
             SI47XX_PatchPowerUp();
         }
         /* wasSSB: LSB/USB/CW — no HW reset; fm.c calls SetFreq + FM_ApplyAMOptions */
     } else {
+        SI47XX_PowerDown();
         SI47XX_HwResetForModeSwitch();
         if (mode == SI47XX_FM)
             SI47XX_FirstPowerUp((uint16_t)(Read_FreqSaved() / divider));
         else
             SI47XX_AmBootAfterReset();
     }
+
+    SI4732_RST_HoldRelease();
 }
 
 void SI47XX_SetFreq(uint16_t freq)
