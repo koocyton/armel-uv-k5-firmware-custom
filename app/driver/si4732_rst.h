@@ -5,16 +5,14 @@
 #ifndef DRIVER_SI4732_RST_H
 #define DRIVER_SI4732_RST_H
 
-#include "driver/gpio.h"
-#include "py32f071_ll_gpio.h"
+#include <stdint.h>
 
-#if defined(ENABLE_SI4732_RST_ON_PA14)
-#define SI4732_RST_PIN GPIO_MAKE_PIN(GPIOA, LL_GPIO_PIN_14)
-#elif !defined(SI4732_RST_PIN)
-#define SI4732_RST_PIN GPIO_MAKE_PIN(GPIOA, LL_GPIO_PIN_15)
-#endif
+void SI4732_RST_ConfigurePin(void);
+void SI4732_RST_HoldAssert(void);
+void SI4732_RST_HoldRelease(void);
+void SI4732_RST_PulseMs(uint16_t low_ms, uint16_t high_ms);
 
-#define SI47XX_RST_ASSERT   GPIO_ResetOutputPin(SI4732_RST_PIN) /* RST low  = chip in reset */
-#define SI47XX_RST_RELEASE  GPIO_SetOutputPin(SI4732_RST_PIN)    /* RST high = chip running */
+#define SI47XX_RST_ASSERT()  SI4732_RST_HoldAssert()
+#define SI47XX_RST_RELEASE() SI4732_RST_HoldRelease()
 
 #endif

@@ -5,6 +5,7 @@
 #include "driver/gpio.h"
 #include "driver/si4732_rst.h"
 #include "driver/si473x.h"
+#include "driver/i2c.h"
 #include "driver/system.h"
 
 uint16_t BK1080_BaseFrequency;
@@ -12,7 +13,7 @@ uint16_t BK1080_FrequencyDeviation;
 
 void BK1080_Init0(void)
 {
-	SI47XX_RST_ASSERT;
+	SI47XX_RST_ASSERT();
 	si4732mode = SI47XX_FM;
 }
 
@@ -20,12 +21,17 @@ void BK1080_Init(uint16_t freq, uint8_t band)
 {
 	(void)band;
 	if (freq) {
+#ifdef ENABLE_SI4732_RST_ON_PA14
+		I2C_BusIdle();
+		SI4732_RST_PulseMs(30U, 80U);
+#else
 		SI47XX_HardwareReset();
+#endif
 		si4732mode = SI47XX_FM;
 		SI47XX_FirstPowerUp((uint16_t)((unsigned long)freq * 10U));
 	} else {
 		SI47XX_PowerDown();
-		SI47XX_RST_ASSERT;
+		SI47XX_RST_ASSERT();
 	}
 }
 

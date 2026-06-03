@@ -145,6 +145,7 @@ if(ENABLE_FMRADIO)
         target_sources(App INTERFACE
             driver/si473x.c
             driver/si4732.c
+            driver/si4732_rst.c
             driver/si4732_ext_flash.c
         )
     else()
