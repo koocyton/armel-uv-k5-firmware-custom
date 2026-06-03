@@ -238,7 +238,8 @@
                 "ENABLE_FEAT_F4HWN_QRCODE": true,
                 "ENABLE_FEAT_F4HWN_MEM": true,
                 "ENABLE_FEAT_F4HWN_LOGO": false,
-                "ENABLE_SWD": true,
+                "ENABLE_SI4732_RST_ON_PA14": true,
+                "ENABLE_SWD": false,
                 "EDITION_STRING": "Si4732",
                 "TARGET": "f4hwn.si4732"
             }

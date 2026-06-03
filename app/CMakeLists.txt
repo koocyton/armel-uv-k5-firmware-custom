@@ -68,6 +68,17 @@ if(ENABLE_SI4732 AND NOT ENABLE_FMRADIO)
     message(STATUS "ENABLE_SI4732: ENABLE_FMRADIO was OFF — enabled automatically")
 endif()
 
+option(ENABLE_SI4732_RST_ON_PA14
+    "Si4732 RST on PA14 (LQFP48 pin 37). Requires ENABLE_SWD=OFF (PA14 is SWCLK)."
+    OFF)
+if(ENABLE_SI4732_RST_ON_PA14)
+    if(ENABLE_SWD)
+        message(WARNING "ENABLE_SI4732_RST_ON_PA14: PA14 is SWCLK — forcing ENABLE_SWD=OFF")
+        set(ENABLE_SWD OFF CACHE BOOL "SWD on PA13/PA14 (incompatible with RST on PA14)" FORCE)
+    endif()
+    target_compile_definitions(App INTERFACE ENABLE_SI4732_RST_ON_PA14)
+endif()
+
 # compile options (see README.md for descriptions)
 
 if(ENABLE_FEAT_F4HWN)

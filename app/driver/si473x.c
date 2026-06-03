@@ -17,6 +17,18 @@ static const uint8_t SI47XX_I2C_ADDR = (SI47XX_I2C_ADDR_7BIT << 1) | 0U;
 #define RST_HIGH SI47XX_RST_RELEASE /* RST high = out of reset */
 #define RST_LOW  SI47XX_RST_ASSERT  /* RST low  = in reset */
 
+/* Same as BK1080_Init() in si4732.c — mode switch must match cold start. */
+#define SI47XX_RST_HOLD_MS    30U
+#define SI47XX_RST_RELEASE_MS 80U
+
+static void SI47XX_HwResetRelease(void)
+{
+    /* PowerDown() leaves RST low; hold then release before POWER_UP / patch. */
+    SYSTEM_DelayMs(SI47XX_RST_HOLD_MS);
+    RST_HIGH;
+    SYSTEM_DelayMs(SI47XX_RST_RELEASE_MS);
+}
+
 RSQStatus rsqStatus;
 uint16_t divider = 1000;
 
@@ -241,7 +253,7 @@ void SI47XX_FirstPowerUp(uint16_t freq_10k)
 
 void SI47XX_PowerUp()
 {
-    RST_HIGH;
+    SI47XX_HwResetRelease();
 
     uint8_t cmd[3] = { CMD_POWER_UP, FLG_XOSCEN | FUNC_FM, OUT_ANALOG };
     if (isAmFamilyStatic()) {
@@ -307,7 +319,7 @@ static bool SI47XX_downloadPatch(void)
 
 static void SI47XX_PatchPowerUp(void)
 {
-    RST_HIGH;
+    SI47XX_HwResetRelease();
     uint8_t cmd[3] = { CMD_POWER_UP, 0x31, OUT_ANALOG };
     waitToSend();
     SI47XX_WriteBuffer(cmd, 3);

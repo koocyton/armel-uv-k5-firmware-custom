@@ -122,10 +122,17 @@ void BOARD_GPIO_Init(void)
     InitStruct.Pin = LL_GPIO_PIN_6 | LL_GPIO_PIN_5;
     LL_GPIO_Init(GPIOF, &InitStruct);
 #ifdef ENABLE_FM_SI4732
-    // Si4732 RST: PA15 (LQFP48 pin 38), active-low — override with -DSI4732_RST_PIN=...
+#ifdef ENABLE_SI4732_RST_ON_PA14
+    // Si4732 RST: PA14 (LQFP48 pin 37 / SWCLK), active-low
+    InitStruct.Pin = LL_GPIO_PIN_14;
+    LL_GPIO_Init(GPIOA, &InitStruct);
+    LL_GPIO_ResetOutputPin(GPIOA, LL_GPIO_PIN_14);
+#else
+    // Si4732 RST: PA15 (LQFP48 pin 38), active-low
     InitStruct.Pin = LL_GPIO_PIN_15;
     LL_GPIO_Init(GPIOA, &InitStruct);
     LL_GPIO_ResetOutputPin(GPIOA, LL_GPIO_PIN_15);
+#endif
 #endif
 #endif
 
@@ -135,9 +142,15 @@ void BOARD_GPIO_Init(void)
     LL_GPIO_Init(GPIOF, &InitStruct);
 
 #ifndef ENABLE_SWD
-    // A14:13
+#ifndef ENABLE_SI4732_RST_ON_PA14
+    // PA13 SWDIO + PA14 (only when PA14 is not Si4732 RST)
     InitStruct.Pin = LL_GPIO_PIN_14 | LL_GPIO_PIN_13;
     LL_GPIO_Init(GPIOA, &InitStruct);
+#else
+    // PA13 SWDIO only (PA14 = Si4732 RST)
+    InitStruct.Pin = LL_GPIO_PIN_13;
+    LL_GPIO_Init(GPIOA, &InitStruct);
+#endif
 #endif // ENABLE_SWD
 }
 
