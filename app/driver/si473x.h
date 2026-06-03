@@ -552,6 +552,7 @@ typedef union {
 } SI47XX_BW_Config; // AM_CHANNEL_FILTER
 
 void SI47XX_FirstPowerUp(uint16_t freq_10k);
+void SI47XX_HardwareReset(void);
 void SI47XX_Mute(bool mute);
 void SI47XX_PowerUp(void);
 void SI47XX_PowerDown(void);

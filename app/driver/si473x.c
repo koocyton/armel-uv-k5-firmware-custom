@@ -17,16 +17,48 @@ static const uint8_t SI47XX_I2C_ADDR = (SI47XX_I2C_ADDR_7BIT << 1) | 0U;
 #define RST_HIGH SI47XX_RST_RELEASE /* RST high = out of reset */
 #define RST_LOW  SI47XX_RST_ASSERT  /* RST low  = in reset */
 
-/* Same as BK1080_Init() in si4732.c — mode switch must match cold start. */
-#define SI47XX_RST_HOLD_MS    30U
-#define SI47XX_RST_RELEASE_MS 80U
+/* Si473x-D60 Table 3 (2-wire / I2C): tSRST >= 100 us; SCLK high at RST rising edge. */
+#define SI47XX_T_RST_ASSERT_HOLD_US     1000U /* >= 100 us; FM cold start (direct PA14 RST) */
+#define SI47XX_T_RST_RELEASE_SETTLE_US  100U  /* >> 300 ns before first START after RST^ */
+/* After RST release on PA14 (weak 10k pull-up): allow crystal to start (K5 init uses 80 ms). */
+#ifdef ENABLE_SI4732_RST_ON_PA14
+#define SI47XX_T_RST_AFTER_RELEASE_MS   80U
+#else
+#define SI47XX_T_RST_AFTER_RELEASE_MS   0U
+#endif
+/* AN332: >= 500 ms after POWER_UP (XOSCEN); K5 uses 500 ms on switch too. */
+#define SI47XX_T_XOSC_STABLE_MS         500U
+#define SI47XX_T_XOSC_STABLE_SWITCH_MS  500U
 
-static void SI47XX_HwResetRelease(void)
+static void SI47XX_RstAssertHold(void)
 {
-    /* PowerDown() leaves RST low; hold then release before POWER_UP / patch. */
-    SYSTEM_DelayMs(SI47XX_RST_HOLD_MS);
+    RST_LOW;
+    SYSTICK_DelayUs(SI47XX_T_RST_ASSERT_HOLD_US);
+}
+
+static void SI47XX_RstRelease(void)
+{
+    I2C_BusIdle();
     RST_HIGH;
-    SYSTEM_DelayMs(SI47XX_RST_RELEASE_MS);
+    SYSTICK_DelayUs(SI47XX_T_RST_RELEASE_SETTLE_US);
+}
+
+void SI47XX_HardwareReset(void)
+{
+    I2C_BusIdle();
+    SI47XX_RstAssertHold();
+    SI47XX_RstRelease();
+}
+
+/* K5 SwitchMode: PowerDown leaves RST low; PowerUp/PatchPowerUp drives RST high first. */
+static void SI47XX_RstReleaseAfterPowerDown(void)
+{
+    I2C_BusIdle();
+    RST_HIGH;
+    if (SI47XX_T_RST_AFTER_RELEASE_MS != 0U)
+        SYSTEM_DelayMs(SI47XX_T_RST_AFTER_RELEASE_MS);
+    else
+        SYSTICK_DelayUs(SI47XX_T_RST_RELEASE_SETTLE_US);
 }
 
 RSQStatus rsqStatus;
@@ -59,14 +91,21 @@ void SI47XX_WriteBuffer(uint8_t *buf, uint8_t size)
     I2C_Stop();
 }
 
+static bool waitToSendTimeoutMs(uint16_t timeout_ms)
+{
+    for (uint16_t i = 0; i < timeout_ms; i++) {
+        uint8_t tmp = 0;
+        SI47XX_ReadBuffer((uint8_t *)&tmp, 1);
+        if (tmp & STATUS_CTS)
+            return true;
+        SYSTEM_DelayMs(1);
+    }
+    return false;
+}
+
 void waitToSend()
 {
-    uint8_t tmp = 0;
-    SI47XX_ReadBuffer((uint8_t *)&tmp, 1);
-    while (!(tmp & STATUS_CTS)) {
-        SYSTICK_DelayUs(1);
-        SI47XX_ReadBuffer((uint8_t *)&tmp, 1);
-    }
+    (void)waitToSendTimeoutMs(500U);
 }
 
 static void sendProperty(uint16_t prop, uint16_t parameter)
@@ -237,7 +276,7 @@ void SI47XX_FirstPowerUp(uint16_t freq_10k)
 {
     uint8_t cmd[3] = { CMD_POWER_UP, FLG_XOSCEN | FUNC_FM, OUT_ANALOG };
     SI47XX_WriteBuffer(cmd, 3);
-    SYSTEM_DelayMs(500);
+    SYSTEM_DelayMs(SI47XX_T_XOSC_STABLE_MS);
     waitToSend();
 #ifdef ENABLE_FM_SI4732_AUDIO_PATH_INVERTED
     AUDIO_AudioPathOn_FM();
@@ -251,17 +290,21 @@ void SI47XX_FirstPowerUp(uint16_t freq_10k)
     SI47XX_SetFreq(freq_10k);
 }
 
-void SI47XX_PowerUp()
+static void SI47XX_PowerUpCommon(uint16_t xosc_stable_ms)
 {
-    SI47XX_HwResetRelease();
-
     uint8_t cmd[3] = { CMD_POWER_UP, FLG_XOSCEN | FUNC_FM, OUT_ANALOG };
     if (isAmFamilyStatic()) {
         cmd[1] = FLG_XOSCEN | FUNC_AM;
     }
-    waitToSend();
     SI47XX_WriteBuffer(cmd, 3);
-    SYSTEM_DelayMs(500);
+    SYSTEM_DelayMs(xosc_stable_ms);
+    waitToSend();
+}
+
+void SI47XX_PowerUp()
+{
+    SI47XX_RstReleaseAfterPowerDown();
+    SI47XX_PowerUpCommon(SI47XX_T_XOSC_STABLE_SWITCH_MS);
 
     AUDIO_AudioPathOn_FM();
     setVolume(63);
@@ -295,7 +338,7 @@ static void SI47XX_SsbRunPowerUp(void)
     uint8_t cmd[3] = { CMD_POWER_UP, FLG_XOSCEN | FUNC_AM, OUT_ANALOG };
     waitToSend();
     SI47XX_WriteBuffer(cmd, 3);
-    SYSTEM_DelayMs(500);
+    SYSTEM_DelayMs(SI47XX_T_XOSC_STABLE_SWITCH_MS);
     waitToSend();
 }
 
@@ -319,11 +362,11 @@ static bool SI47XX_downloadPatch(void)
 
 static void SI47XX_PatchPowerUp(void)
 {
-    SI47XX_HwResetRelease();
+    SI47XX_RstReleaseAfterPowerDown();
     uint8_t cmd[3] = { CMD_POWER_UP, 0x31, OUT_ANALOG };
-    waitToSend();
     SI47XX_WriteBuffer(cmd, 3);
-    SYSTEM_DelayMs(500);
+    SYSTEM_DelayMs(SI47XX_T_XOSC_STABLE_SWITCH_MS);
+    waitToSend();
 
     SI47XX_downloadPatch();
     SYSTEM_DelayMs(50);
@@ -353,23 +396,25 @@ void SI47XX_PowerDown()
 #endif
     uint8_t cmd[1] = { CMD_POWER_DOWN };
 
-    waitToSend();
-    SI47XX_WriteBuffer(cmd, 1);
+    if (waitToSendTimeoutMs(100U))
+        SI47XX_WriteBuffer(cmd, 1);
     SYSTICK_DelayUs(10);
     RST_LOW;
+    I2C_BusIdle();
 }
 
 void SI47XX_SwitchMode(SI47XX_MODE mode)
 {
     if (si4732mode == mode)
         return;
-    bool wasSSB = SI47XX_IsSSB() || (si4732mode == SI47XX_CW);
+    const bool wasSSB = SI47XX_IsSSB() || (si4732mode == SI47XX_CW);
     si4732mode = mode;
     if (mode == SI47XX_LSB || mode == SI47XX_USB || mode == SI47XX_CW) {
         if (!wasSSB) {
             SI47XX_PowerDown();
             SI47XX_PatchPowerUp();
         }
+        /* wasSSB: LSB/USB/CW — no HW reset; fm.c calls SetFreq + FM_ApplyAMOptions */
     } else {
         SI47XX_PowerDown();
         SI47XX_PowerUp();

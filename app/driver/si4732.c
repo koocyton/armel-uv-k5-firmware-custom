@@ -20,11 +20,7 @@ void BK1080_Init(uint16_t freq, uint8_t band)
 {
 	(void)band;
 	if (freq) {
-		/* Reset sequence: hold RST low, then release (Si4732 datasheet) */
-		SI47XX_RST_ASSERT;
-		SYSTEM_DelayMs(30);
-		SI47XX_RST_RELEASE;
-		SYSTEM_DelayMs(80);
+		SI47XX_HardwareReset();
 		si4732mode = SI47XX_FM;
 		SI47XX_FirstPowerUp((uint16_t)((unsigned long)freq * 10U));
 	} else {

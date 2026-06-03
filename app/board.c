@@ -123,9 +123,11 @@ void BOARD_GPIO_Init(void)
     LL_GPIO_Init(GPIOF, &InitStruct);
 #ifdef ENABLE_FM_SI4732
 #ifdef ENABLE_SI4732_RST_ON_PA14
-    // Si4732 RST: PA14 (LQFP48 pin 37 / SWCLK), active-low
+    // Si4732 RST: PA14 (LQFP48 pin 37 / SWCLK), active-low, no internal pull (10k on board)
+    InitStruct.Pull = LL_GPIO_PULL_NO;
     InitStruct.Pin = LL_GPIO_PIN_14;
     LL_GPIO_Init(GPIOA, &InitStruct);
+    InitStruct.Pull = LL_GPIO_PULL_UP;
     LL_GPIO_ResetOutputPin(GPIOA, LL_GPIO_PIN_14);
 #else
     // Si4732 RST: PA15 (LQFP48 pin 38), active-low

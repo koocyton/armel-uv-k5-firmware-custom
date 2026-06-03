@@ -154,6 +154,15 @@ static void FM_ApplyAMOptions(void)
         SI47XX_ApplySsbAudioProfile();
 }
 
+#ifdef ENABLE_FM_SI4732
+static void FM_RestoreSi4732AudioAfterSwitch(void)
+{
+    gEnableSpeaker = true;
+    AUDIO_AudioPathOn_FM();
+    BK1080_Mute(false);
+}
+#endif
+
 bool FM_IsAMMode(void)
 {
     return SI47XX_IsAMFamily();
@@ -603,6 +612,7 @@ static void Key_FUNC(KEY_Code_t Key, uint8_t state)
                         (si4732mode == SI47XX_LSB) ? SI47XX_USB :
                         (si4732mode == SI47XX_USB) ? SI47XX_CW : SI47XX_AM;
                     SI47XX_SwitchMode(next);
+                    FM_RestoreSi4732AudioAfterSwitch();
                     FM_AM_ApplyDefaultBwForMode();
                     SI47XX_SetFreq(gAM_FrequencyKHz);
                     FM_ApplyAMOptions();
@@ -980,6 +990,7 @@ void FM_ProcessKeys(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
                 if (!gFKeyLongPressDone) {
                     if (si4732mode == SI47XX_FM) {
                         SI47XX_SwitchMode(SI47XX_AM);
+                        FM_RestoreSi4732AudioAfterSwitch();
                         if (gAM_FrequencyKHz < 500)
                             gAM_FrequencyKHz = 500;
                         if (gAM_FrequencyKHz > 30000)
@@ -991,12 +1002,14 @@ void FM_ProcessKeys(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
                         gUpdateStatus = true;
                     } else if (si4732mode == SI47XX_AM) {
                         SI47XX_SwitchMode(SI47XX_FM);
+                        FM_RestoreSi4732AudioAfterSwitch();
                         SI47XX_SetFreq((uint16_t)((unsigned long)gEeprom.FM_FrequencyPlaying * 10U));
                         gUpdateStatus = true;
                     } else if (si4732mode == SI47XX_LSB || si4732mode == SI47XX_USB || si4732mode == SI47XX_CW) {
                         SI47XX_MODE next = (si4732mode == SI47XX_USB) ? SI47XX_LSB :
                             (si4732mode == SI47XX_LSB) ? SI47XX_CW : SI47XX_USB;
                         SI47XX_SwitchMode(next);
+                        FM_RestoreSi4732AudioAfterSwitch();
                         FM_AM_ApplyDefaultBwForMode();
                         SI47XX_SetFreq(gAM_FrequencyKHz);
                         FM_ApplyAMOptions();
@@ -1011,6 +1024,7 @@ void FM_ProcessKeys(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
                     if (si4732mode == SI47XX_LSB || si4732mode == SI47XX_USB || si4732mode == SI47XX_CW) {
                         if (!gFKeyJustEnteredSSB) {
                             SI47XX_SwitchMode(SI47XX_AM);
+                            FM_RestoreSi4732AudioAfterSwitch();
                             SI47XX_SetFreq(gAM_FrequencyKHz);
                             FM_ApplyAMOptions();
                             gUpdateStatus = true;
@@ -1026,6 +1040,7 @@ void FM_ProcessKeys(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
                         UI_DisplayFmWait();
                         ST7565_BlitFullScreen();
                         SI47XX_SwitchMode(SI47XX_USB);
+                        FM_RestoreSi4732AudioAfterSwitch();
                         FM_AM_ApplyDefaultBwForMode();
                         SI47XX_SetFreq(gAM_FrequencyKHz);
                         FM_ApplyAMOptions();
