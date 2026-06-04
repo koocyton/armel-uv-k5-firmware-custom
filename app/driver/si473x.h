@@ -575,8 +575,9 @@ void SI47XX_ApplyRxBfo(int16_t hz);
 void SI47XX_SetAMBandwidth(uint8_t index);
 void SI47XX_SetSeekFmLimits(uint16_t bottom, uint16_t top);
 void SI47XX_SetSeekAmLimits(uint16_t bottom, uint16_t top);
-/* AM/SSB audio profiles (k5 si4732) */
+/* AM 听感：去加重、软静音、BW+工频陷波、AGC 开启；bwIndex 0..6 见 UI */
 void SI47XX_ApplyAmAudioProfile(uint8_t bwIndex);
+/* SSB/CW：音量、RF AGC、AVC 上限、关闭软静音（每次进 SSB 或调台后调用） */
 void SI47XX_ApplySsbAudioProfile(void);
 extern SI47XX_MODE si4732mode;
 extern RSQStatus rsqStatus;

@@ -27,8 +27,6 @@ enum {
 
 void I2C_Start(void);
 void I2C_Stop(void);
-/* 2-wire idle: SCLK/SDIO high (required before Si473x RST rising edge). */
-void I2C_BusIdle(void);
 
 uint8_t I2C_Read(bool bFinal);
 int I2C_Write(uint8_t Data);

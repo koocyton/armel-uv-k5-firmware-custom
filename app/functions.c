@@ -101,10 +101,8 @@ void FUNCTION_Foreground(const FUNCTION_Type_t PreviousFunction)
     }
 
 #if defined(ENABLE_FMRADIO)
-    if (gFmRadioMode) {
-        gFM_RestoreCountdown_10ms = 0;
-        FM_RestoreAudio();
-    }
+    if (gFmRadioMode)
+        gFM_RestoreCountdown_10ms = fm_restore_countdown_10ms;
 #endif
 
 #ifdef ENABLE_DTMF_CALLING
@@ -153,7 +151,7 @@ void FUNCTION_Transmit()
 
     // clear the DTMF RX live decoder buffer
     gDTMF_RX_live_timeout = 0;
-    DTMF_clear_input_box_memory();
+    memset(gDTMF_RX_live, 0, sizeof(gDTMF_RX_live));
 
 #if defined(ENABLE_FMRADIO)
     if (gFmRadioMode)

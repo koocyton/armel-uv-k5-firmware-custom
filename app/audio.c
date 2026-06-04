@@ -33,50 +33,32 @@
 #include "settings.h"
 #include "ui/ui.h"
 
-#ifdef ENABLE_FM_SI4732
-static void AUDIO_RestoreSpeakerPath(void)
-{
-    if (gFmRadioMode) {
-        if (gEnableSpeaker)
-            AUDIO_AudioPathOn_FM();
-        else
-            AUDIO_AudioPathOff_FM();
-        return;
-    }
-
-    if (gEnableSpeaker)
-        AUDIO_AudioPathOn();
-    else
-        AUDIO_AudioPathOff();
-}
-#endif
-
-static const uint16_t BEEP_Classic_array[][3] = { /* Tone    Duration    Repeats  */                                     
-    [BEEP_NONE]                                   = {0,      0,          0      },
-    [BEEP_1KHZ_60MS_OPTIONAL]                     = {1000,   60,         1      },
-    [BEEP_500HZ_60MS_DOUBLE_BEEP_OPTIONAL]        = {500,    60,         2      },
-#ifdef ENABLE_DTMF_CALLING
-    [BEEP_880HZ_200MS]                            = {880,    200,        1      },
-    [BEEP_880HZ_500MS]                            = {880,    500,        1      },
-#endif
-#ifdef ENABLE_FEAT_F4HWN
-    [BEEP_400HZ_30MS]                             = {400,    30,         1      },
-    [BEEP_500HZ_30MS]                             = {500,    30,         1      },
-    [BEEP_600HZ_30MS]                             = {600,    30,         1      },
-#endif
-    [BEEP_880HZ_60MS_TRIPLE_BEEP]                 = {880,    60,         3      }
-};
 
 BEEP_Type_t gBeepToPlay = BEEP_NONE;
 
+static void AUDIO_PlayBeepPulse(void) {
+    BK4819_ExitTxMute();
+    SYSTEM_DelayMs(60);
+    BK4819_EnterTxMute();
+    SYSTEM_DelayMs(20);
+}
+
 void AUDIO_PlayBeep(BEEP_Type_t Beep)
 {
-    if (Beep == BEEP_NONE)
-        return;
 
-    if ((Beep == BEEP_1KHZ_60MS_OPTIONAL ||
-         Beep == BEEP_500HZ_60MS_DOUBLE_BEEP_OPTIONAL) &&
-         !gEeprom.BEEP_CONTROL)
+    if (Beep != BEEP_880HZ_60MS_DOUBLE_BEEP &&
+        Beep != BEEP_500HZ_60MS_DOUBLE_BEEP &&
+        Beep != BEEP_440HZ_500MS &&
+#ifdef ENABLE_DTMF_CALLING
+        Beep != BEEP_880HZ_200MS &&
+        Beep != BEEP_880HZ_500MS &&
+#endif
+#ifdef ENABLE_FEAT_F4HWN
+        Beep != BEEP_400HZ_30MS &&
+        Beep != BEEP_500HZ_30MS &&
+        Beep != BEEP_600HZ_30MS &&
+#endif
+       !gEeprom.BEEP_CONTROL)
         return;
         
     if (gCurrentFunction == FUNCTION_RECEIVE)
@@ -85,17 +67,9 @@ void AUDIO_PlayBeep(BEEP_Type_t Beep)
     if (gCurrentFunction == FUNCTION_MONITOR)
         return;
 
-    if (Beep >= ARRAY_SIZE(BEEP_Classic_array))
-        return;
-
 #ifdef ENABLE_FMRADIO
     if (gFmRadioMode)
         BK1080_Mute(true);
-#endif
-
-#ifdef ENABLE_FM_SI4732
-    if (gFmRadioMode)
-        AUDIO_AudioPathOff_FM();
 #endif
 
     AUDIO_AudioPathOff();
@@ -107,14 +81,49 @@ void AUDIO_PlayBeep(BEEP_Type_t Beep)
 
     uint16_t ToneConfig = BK4819_ReadRegister(BK4819_REG_71);
 
+    uint16_t ToneFrequency;
+    switch (Beep)
+    {
+        default:
+        case BEEP_NONE:
+            ToneFrequency = 220;
+            break;
+        case BEEP_1KHZ_60MS_OPTIONAL:
+            ToneFrequency = 1000;
+            break;
+        case BEEP_500HZ_60MS_DOUBLE_BEEP_OPTIONAL:
+        case BEEP_500HZ_60MS_DOUBLE_BEEP:
+            ToneFrequency = 500;
+            break;
+        case BEEP_440HZ_500MS:
+            ToneFrequency = 440;
+            break;
+        case BEEP_880HZ_60MS_DOUBLE_BEEP:
+#ifndef ENABLE_FEAT_F4HWN
+        case BEEP_880HZ_200MS:
+        case BEEP_880HZ_500MS:
+#endif
+            ToneFrequency = 880;
+            break;
 #ifdef ENABLE_FEAT_F4HWN
+        case BEEP_400HZ_30MS:
+            ToneFrequency = 400;
+            break;
+        case BEEP_500HZ_30MS:
+            ToneFrequency = 500;
+            break;
+        case BEEP_600HZ_30MS:
+            ToneFrequency = 600;
+            break;
+#endif
+    }
+
     if(Beep == BEEP_400HZ_30MS || Beep == BEEP_500HZ_30MS || Beep == BEEP_600HZ_30MS)
     {
         BK4819_WriteRegister(BK4819_REG_70, BK4819_REG_70_ENABLE_TONE1 | ((1 & 0x7f) << BK4819_REG_70_SHIFT_TONE1_TUNING_GAIN));
     }
-#endif
 
-    BK4819_PrepareToPlayTone(true);
+    BK4819_PlayTone(ToneFrequency, true);
 
     SYSTEM_DelayMs(2);
 
@@ -122,11 +131,45 @@ void AUDIO_PlayBeep(BEEP_Type_t Beep)
 
     SYSTEM_DelayMs(60);
 
-    for (uint8_t i = 0; i < BEEP_Classic_array[Beep][BEEP_REPEATS]; i++) {
-        BK4819_PlayToneRaw( BEEP_Classic_array[Beep][BEEP_TONE], 
-                            BEEP_Classic_array[Beep][BEEP_DURATION]);
-        SYSTEM_DelayMs(20);
+    uint16_t Duration;
+    switch (Beep)
+    {
+        case BEEP_880HZ_60MS_DOUBLE_BEEP:
+            AUDIO_PlayBeepPulse();
+            [[fallthrough]];
+        case BEEP_500HZ_60MS_DOUBLE_BEEP_OPTIONAL:
+        case BEEP_500HZ_60MS_DOUBLE_BEEP:
+            AUDIO_PlayBeepPulse();
+            [[fallthrough]];
+        case BEEP_1KHZ_60MS_OPTIONAL:
+            BK4819_ExitTxMute();
+            Duration = 60;
+            break;
+#ifdef ENABLE_FEAT_F4HWN
+        case BEEP_400HZ_30MS:
+        case BEEP_500HZ_30MS:
+        case BEEP_600HZ_30MS:
+            BK4819_ExitTxMute();
+            Duration = 30;
+            break;
+#endif
+        case BEEP_440HZ_500MS:
+#ifndef ENABLE_FEAT_F4HWN
+        case BEEP_880HZ_200MS:
+            BK4819_ExitTxMute();
+            Duration = 200;
+            break;
+        case BEEP_880HZ_500MS:
+#endif
+        default:
+            BK4819_ExitTxMute();
+            Duration = 500;
+            break;
     }
+
+    SYSTEM_DelayMs(Duration);
+    BK4819_EnterTxMute();
+    SYSTEM_DelayMs(20);
 
     AUDIO_AudioPathOff();
 
@@ -142,12 +185,9 @@ void AUDIO_PlayBeep(BEEP_Type_t Beep)
         SYSTEM_DelayMs(10);
 #endif
 
-#ifdef ENABLE_FM_SI4732
-    AUDIO_RestoreSpeakerPath();
-#else
+
     if (gEnableSpeaker)
         AUDIO_AudioPathOn();
-#endif
 
 #ifdef ENABLE_FMRADIO
     if (isFmRadio)
@@ -160,6 +200,7 @@ void AUDIO_PlayBeep(BEEP_Type_t Beep)
 #ifdef ENABLE_VOX
     gVoxResumeCountdown = 80;
 #endif
+
 }
 
 #ifdef ENABLE_VOICE
@@ -331,12 +372,8 @@ void AUDIO_PlaySingleVoice(bool bFlag)
                     BK1080_Mute(false);
             #endif
 
-#ifdef ENABLE_FM_SI4732
-            AUDIO_RestoreSpeakerPath();
-#else
             if (!gEnableSpeaker)
                 AUDIO_AudioPathOff();
-#endif
 
             gVoiceWriteIndex    = 0;
             gVoiceReadIndex     = 0;
@@ -476,12 +513,8 @@ void AUDIO_PlayQueuedVoice(void)
             BK1080_Mute(false);
     #endif
 
-#ifdef ENABLE_FM_SI4732
-    AUDIO_RestoreSpeakerPath();
-#else
     if (!gEnableSpeaker)
         AUDIO_AudioPathOff();
-#endif
 
     #ifdef ENABLE_VOX
         gVoxResumeCountdown = 80;

@@ -1,11 +1,9 @@
-/* BK1080-compatible adapter for Si4732 using driver/si473x (FM only). */
+/* BK1080-compatible adapter for Si4732 using driver/si473x (FM/AM/SSB). */
 
 #include "driver/bk1080.h"
 #include "driver/bk1080-regs.h"
 #include "driver/gpio.h"
-#include "driver/si4732_rst.h"
 #include "driver/si473x.h"
-#include "driver/i2c.h"
 #include "driver/system.h"
 
 uint16_t BK1080_BaseFrequency;
@@ -13,7 +11,7 @@ uint16_t BK1080_FrequencyDeviation;
 
 void BK1080_Init0(void)
 {
-	SI47XX_RST_ASSERT();
+	GPIO_SI4732_RstLow();
 	si4732mode = SI47XX_FM;
 }
 
@@ -24,10 +22,9 @@ void BK1080_Init(uint16_t freq, uint8_t band)
 		SI47XX_HardwareReset();
 		si4732mode = SI47XX_FM;
 		SI47XX_FirstPowerUp((uint16_t)((unsigned long)freq * 10U));
-		SI4732_RST_HoldRelease();
 	} else {
 		SI47XX_PowerDown();
-		SI47XX_RST_ASSERT();
+		GPIO_SI4732_RstLow();
 	}
 }
 

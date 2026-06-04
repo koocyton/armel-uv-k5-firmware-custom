@@ -31,9 +31,6 @@
 #include "driver/crc.h"
 #include "driver/eeprom.h"
 #include "driver/gpio.h"
-#if defined(ENABLE_SI4732) && (defined(ENABLE_UART) || defined(ENABLE_USB))
-#include "driver/si4732_ext_flash.h"
-#endif
 
 #if defined(ENABLE_UART)
 #include "driver/uart.h"
@@ -386,9 +383,9 @@ static void CMD_0514(uint32_t Port, const uint8_t *pBuffer)
 #endif
 
     gSerialConfigCountDown_500ms = 12; // 6 sec
-
-    if (gEeprom.BACKLIGHT_TIME < 61) // backlight is set to be always on
-        BACKLIGHT_TurnOff();         // turn the LCD backlight off
+    
+    // turn the LCD backlight off
+    BACKLIGHT_TurnOff();
 
     SendVersion(Port);
 }
@@ -516,14 +513,15 @@ static void CMD_051D(uint32_t Port, const uint8_t *pBuffer)
 }
 
 #if defined(ENABLE_SI4732) && (defined(ENABLE_UART) || defined(ENABLE_USB))
-static uint32_t GetUartSessionTs(uint32_t Port)
+static uint32_t UART_GetSessionTimestamp(uint32_t Port)
 {
+    if(0) {}
 #if defined(ENABLE_UART)
-    if (Port == UART_PORT_UART)
+    else if (Port == UART_PORT_UART)
         return UART_Timestamp;
 #endif
 #if defined(ENABLE_USB)
-    if (Port == UART_PORT_VCP)
+    else if (Port == UART_PORT_VCP)
         return VCP_Timestamp;
 #endif
     return 0;
@@ -535,26 +533,27 @@ static void CMD_05F0(uint32_t Port, const uint8_t *pBuffer)
     REPLY_05F1_t      Reply;
     bool              bLocked;
 
-    if (pCmd->Timestamp != GetUartSessionTs(Port))
+    if (pCmd->Timestamp != UART_GetSessionTimestamp(Port))
         return;
 
     gSerialConfigCountDown_500ms = 12;
-#ifdef ENABLE_FMRADIO
-    gFmRadioCountdown_500ms = fm_radio_countdown_500ms;
-#endif
+
+    #ifdef ENABLE_FMRADIO
+        gFmRadioCountdown_500ms = fm_radio_countdown_500ms;
+    #endif
 
     memset(&Reply, 0, sizeof(Reply));
-    Reply.Header.ID    = 0x05F1;
-    Reply.Header.Size  = (uint16_t)(pCmd->Size + 8U);
-    Reply.Data.Address = pCmd->Address;
-    Reply.Data.Size    = pCmd->Size;
+    Reply.Header.ID     = 0x05F1;
+    Reply.Header.Size   = (uint16_t)(pCmd->Size + 8U);
+    Reply.Data.Address  = pCmd->Address;
+    Reply.Data.Size     = pCmd->Size;
 
     if (pCmd->Size != 0 && pCmd->Size <= 128 &&
         (uint32_t)pCmd->Address + (uint32_t)pCmd->Size <= 262144U)
     {
         bLocked = bHasCustomAesKey ? gIsLocked : false;
         if (!bLocked)
-            SI4732_VirtEeprom_Read32(pCmd->Address, Reply.Data.Data, pCmd->Size);
+            I2C_EEPROM_ReadBuffer32(pCmd->Address, Reply.Data.Data, pCmd->Size);
     }
 
     SendReply(Port, &Reply, (uint16_t)(12 + pCmd->Size));
@@ -566,13 +565,14 @@ static void CMD_05F2(uint32_t Port, const uint8_t *pBuffer)
     REPLY_05F3_t      Reply;
     bool              bIsLocked;
 
-    if (pCmd->Timestamp != GetUartSessionTs(Port))
+    if (pCmd->Timestamp != UART_GetSessionTimestamp(Port))
         return;
 
     gSerialConfigCountDown_500ms = 12;
-#ifdef ENABLE_FMRADIO
-    gFmRadioCountdown_500ms = fm_radio_countdown_500ms;
-#endif
+
+    #ifdef ENABLE_FMRADIO
+        gFmRadioCountdown_500ms = fm_radio_countdown_500ms;
+    #endif
 
     Reply.Header.ID    = 0x05F3;
     Reply.Header.Size  = sizeof(Reply.Data);
@@ -582,7 +582,11 @@ static void CMD_05F2(uint32_t Port, const uint8_t *pBuffer)
 
     if (!bIsLocked && pCmd->Size != 0 && (pCmd->Size % 8U) == 0 && pCmd->Size <= 120U &&
         (uint32_t)pCmd->Address + (uint32_t)pCmd->Size <= 262144U)
-        SI4732_VirtEeprom_Write32(pCmd->Address, pCmd->Data, pCmd->Size);
+    {
+        unsigned int i;
+        for (i = 0; i < (pCmd->Size / 8U); i++)
+            I2C_EEPROM_WriteBuffer32(pCmd->Address + (i * 8U), &pCmd->Data[i * 8U]);
+    }
 
     SendReply(Port, &Reply, sizeof(Reply));
 }
@@ -705,8 +709,8 @@ static void CMD_052F(uint32_t Port, const uint8_t *pBuffer)
     }
 #endif
 
-    if (gEeprom.BACKLIGHT_TIME < 61) // backlight is set to be always on
-        BACKLIGHT_TurnOff();         // turn the LCD backlight off
+    // turn the LCD backlight off
+    BACKLIGHT_TurnOff();
 
     SendVersion(Port);
 }

@@ -137,9 +137,6 @@ enum
     MENU_SET_MET,
     MENU_SET_GUI,
     MENU_SET_TMR,
-    #ifdef ENABLE_FEAT_F4HWN_SCAN_FASTER
-        MENU_SET_SCN,
-    #endif
     #ifdef ENABLE_FEAT_F4HWN_NARROWER
         MENU_SET_NFM,
     #endif
@@ -194,9 +191,6 @@ extern const char        gSubMenu_D_RSP[4][11];
     extern const char    gSubMenu_SET_TOT[4][7];
     extern const char    gSubMenu_SET_LCK[2][9];
     extern const char    gSubMenu_SET_MET[2][8];
-    #ifdef ENABLE_FEAT_F4HWN_SCAN_FASTER
-        extern const char    gSubMenu_SET_SCN[2][7];
-    #endif
     #ifdef ENABLE_FEAT_F4HWN_NARROWER
         extern const char    gSubMenu_SET_NFM[2][9];
     #endif
@@ -211,11 +205,7 @@ extern const char        gSubMenu_D_RSP[4][11];
 
 extern const char* const gSubMenu_PTT_ID[5];
 #ifdef ENABLE_FEAT_F4HWN
-    #ifdef ENABLE_FEAT_F4HWN_LOGO
-        extern const char        gSubMenu_PONMSG[6][8];
-    #else
-        extern const char        gSubMenu_PONMSG[5][8];
-    #endif
+    extern const char        gSubMenu_PONMSG[5][8];
 #else
     extern const char        gSubMenu_PONMSG[4][8];
 #endif
@@ -243,7 +233,6 @@ extern int32_t           gSubMenuSelection;
 extern char              edit_original[17];
 extern char              edit[17];
 extern int               edit_index;
-extern bool              edit_is_uppercase;
 
 void UI_DisplayMenu(void);
 int UI_MENU_GetCurrentMenuId();

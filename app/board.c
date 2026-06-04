@@ -30,9 +30,6 @@
 #ifdef ENABLE_FMRADIO
     #include "driver/bk1080.h"
 #endif
-#ifdef ENABLE_FM_SI4732
-    #include "driver/si4732_rst.h"
-#endif
 
 #include "driver/crc.h"
 #include "driver/py25q16.h"
@@ -120,39 +117,28 @@ void BOARD_GPIO_Init(void)
     LL_GPIO_Init(GPIOC, &InitStruct);
 
 #ifdef ENABLE_FMRADIO
-    // BK1080 / Si4732 SCK: PF5
-    // BK1080 / Si4732 SDA: PF6
+    // BK1080/Si4732 SCK: PF5
+    // BK1080/Si4732 SDA: PF6
     InitStruct.Pin = LL_GPIO_PIN_6 | LL_GPIO_PIN_5;
     LL_GPIO_Init(GPIOF, &InitStruct);
-#ifdef ENABLE_FM_SI4732
-#ifdef ENABLE_SI4732_RST_ON_PA14
-    // Si4732 RST: PA14 (LQFP48 pin 37 / SWCLK)
-    SI4732_RST_ConfigurePin();
-    SI4732_RST_HoldAssert();
-#else
-    // Si4732 RST: PA15 (LQFP48 pin 38), active-low; hold in reset until BK1080_Init
-    SI4732_RST_ConfigurePin();
-    SI4732_RST_HoldAssert();
 #endif
-#endif
-#endif
+
+#ifdef ENABLE_SI4732
+    // Si4732 RST (active low) on PA14; internal pull-up + board 10k to 3.3V
+    InitStruct.Pin = LL_GPIO_PIN_14;
+    InitStruct.Pull = LL_GPIO_PULL_UP;
+    LL_GPIO_Init(GPIOA, &InitStruct);
+    LL_GPIO_ResetOutputPin(GPIOA, LL_GPIO_PIN_14);
+#elif !defined(ENABLE_SWD)
+    // A14:13
+    InitStruct.Pin = LL_GPIO_PIN_14 | LL_GPIO_PIN_13;
+    LL_GPIO_Init(GPIOA, &InitStruct);
+#endif // ENABLE_SI4732 / ENABLE_SWD
 
     // Backlight: PF8
     // BK4819 CS: PF9
-    InitStruct.Pin = LL_GPIO_PIN_9 | LL_GPIO_PIN_8  ;
+    InitStruct.Pin = LL_GPIO_PIN_9 | LL_GPIO_PIN_8;
     LL_GPIO_Init(GPIOF, &InitStruct);
-
-#ifndef ENABLE_SWD
-#ifndef ENABLE_SI4732_RST_ON_PA14
-    // PA13 SWDIO + PA14 (only when PA14 is not Si4732 RST)
-    InitStruct.Pin = LL_GPIO_PIN_14 | LL_GPIO_PIN_13;
-    LL_GPIO_Init(GPIOA, &InitStruct);
-#else
-    // PA13 SWDIO only (PA14 = Si4732 RST)
-    InitStruct.Pin = LL_GPIO_PIN_13;
-    LL_GPIO_Init(GPIOA, &InitStruct);
-#endif
-#endif // ENABLE_SWD
 }
 
 void BOARD_ADC_Init(void)

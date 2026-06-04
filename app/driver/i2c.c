@@ -81,14 +81,6 @@ void I2C_Stop(void)
     SYSTICK_DelayUs(1);
 }
 
-void I2C_BusIdle(void)
-{
-    SDA_SetDir(true);
-    SDA_Set();
-    SCL_Set();
-    SYSTICK_DelayUs(1);
-}
-
 uint8_t I2C_Read(bool bFinal)
 {
     uint8_t i, Data;

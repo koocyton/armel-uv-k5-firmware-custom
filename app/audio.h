@@ -22,28 +22,23 @@
 
 #include "driver/gpio.h"
 
-enum {
-    BEEP_TONE = 0,
-    BEEP_DURATION,
-    BEEP_REPEATS
-};
-
-
 enum BEEP_Type_t
 {
     BEEP_NONE = 0,
     BEEP_1KHZ_60MS_OPTIONAL,
     BEEP_500HZ_60MS_DOUBLE_BEEP_OPTIONAL,
+    BEEP_440HZ_500MS,
 #ifdef ENABLE_DTMF_CALLING
     BEEP_880HZ_200MS,
     BEEP_880HZ_500MS,
 #endif
+    BEEP_500HZ_60MS_DOUBLE_BEEP,
 #ifdef ENABLE_FEAT_F4HWN
     BEEP_400HZ_30MS,
     BEEP_500HZ_30MS,
     BEEP_600HZ_30MS,
 #endif
-    BEEP_880HZ_60MS_TRIPLE_BEEP
+    BEEP_880HZ_60MS_DOUBLE_BEEP
 };
 
 typedef enum BEEP_Type_t BEEP_Type_t;
@@ -57,14 +52,12 @@ void AUDIO_PlayBeep(BEEP_Type_t Beep);
 #define AUDIO_AudioPathOff() GPIO_DisableAudioPath()
 
 #ifdef ENABLE_FMRADIO
-#ifdef ENABLE_FM_SI4732
 #ifdef ENABLE_FM_SI4732_AUDIO_PATH_INVERTED
 static inline void AUDIO_AudioPathOn_FM(void)  { GPIO_DisableAudioPath(); }
 static inline void AUDIO_AudioPathOff_FM(void) { GPIO_EnableAudioPath(); }
 #else
-static inline void AUDIO_AudioPathOn_FM(void)  { GPIO_EnableAudioPath(); }
-static inline void AUDIO_AudioPathOff_FM(void) { GPIO_DisableAudioPath(); }
-#endif
+static inline void AUDIO_AudioPathOn_FM(void)  { AUDIO_AudioPathOn(); }
+static inline void AUDIO_AudioPathOff_FM(void) { AUDIO_AudioPathOff(); }
 #endif
 #endif
 

@@ -12,6 +12,6 @@ compile_commands.json
 k5_eeprom.raw
 
 /build
-__pycache__/
+/serialtool/__pycache__
 
 .DS_Store

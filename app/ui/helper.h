@@ -23,7 +23,6 @@
 void UI_GenerateChannelString(char *pString, const uint16_t Channel);
 void UI_GenerateChannelStringEx(char *pString, const bool bShowPrefix, const uint16_t ChannelNumber);
 void UI_PrintString(const char *pString, uint8_t Start, uint8_t End, uint8_t Line, uint8_t Width);
-void UI_PrintStringInverted(const char *pString, uint8_t Start, uint8_t End, uint8_t Line, uint8_t Width);
 void UI_PrintStringSmallNormal(const char *pString, uint8_t Start, uint8_t End, uint8_t Line);
 void UI_PrintStringSmallNormalInverse(const char *pString, uint8_t Start, uint8_t End, uint8_t Line);
 void UI_PrintStringSmallBold(const char *pString, uint8_t Start, uint8_t End, uint8_t Line);
@@ -48,6 +47,5 @@ void UI_FillRectangleBuffer(uint8_t (*buffer)[128], int16_t x1, int16_t y1, int1
 void UI_InvertRectangleBuffer(uint8_t (*buffer)[128], int16_t x1, int16_t y1, int16_t x2, int16_t y2);
 
 void UI_DisplayClear();
-void UI_StatusClear();
 
 #endif

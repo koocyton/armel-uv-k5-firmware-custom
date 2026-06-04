@@ -98,30 +98,6 @@ void UI_PrintString(const char *pString, uint8_t Start, uint8_t End, uint8_t Lin
     }
 }
 
-void UI_PrintStringInverted(const char *pString, uint8_t Start, uint8_t End, uint8_t Line, uint8_t Width)
-{
-    size_t i;
-    size_t Length = strlen(pString);
-
-    if (End > Start)
-        Start += (uint8_t)(((End - Start) - (Length * Width)) + 1) / 2;
-
-    for (i = 0; i < Length; i++)
-    {
-        const unsigned int ofs = (unsigned int)Start + (i * Width);
-        if (pString[i] > ' ' && pString[i] < 127)
-        {
-            const unsigned int index = pString[i] - ' ' - 1;
-            unsigned int       j;
-            for (j = 0; j < 7; j++)
-            {
-                gFrameBuffer[Line + 0][ofs + j] ^= gFontBig[index][j];
-                gFrameBuffer[Line + 1][ofs + j] ^= gFontBig[index][j + 7];
-            }
-        }
-    }
-}
-
 void UI_PrintStringSmall(const char *pString, uint8_t Start, uint8_t End, uint8_t Line, uint8_t char_width, const uint8_t *font)
 {
     const size_t Length = strlen(pString);
@@ -439,6 +415,7 @@ void UI_InvertRectangleBuffer(uint8_t (*buffer)[128], int16_t x1, int16_t y1, in
     }
 }
 
+
 void UI_DisplayPopup(const char *string)
 {
     UI_DisplayClear();
@@ -464,9 +441,4 @@ void UI_DisplayPopup(const char *string)
 void UI_DisplayClear()
 {
     memset(gFrameBuffer, 0, sizeof(gFrameBuffer));
-}
-
-void UI_StatusClear()
-{
-    memset(gStatusLine, 0, sizeof(gStatusLine));
 }

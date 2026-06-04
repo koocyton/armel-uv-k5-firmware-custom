@@ -32,6 +32,9 @@ enum GPIO_PINS
     GPIO_PIN_BACKLIGHT      = GPIO_MAKE_PIN(GPIOF, LL_GPIO_PIN_8),
     GPIO_PIN_FLASHLIGHT     = GPIO_MAKE_PIN(GPIOC, LL_GPIO_PIN_13),
     GPIO_PIN_AUDIO_PATH     = GPIO_MAKE_PIN(GPIOA, LL_GPIO_PIN_8),
+#ifdef ENABLE_SI4732
+    GPIO_PIN_SI4732_RST     = GPIO_MAKE_PIN(GPIOA, LL_GPIO_PIN_14),
+#endif
 };
 
 static inline void GPIO_SetOutputPin(uint32_t Pin)
@@ -78,5 +81,18 @@ static inline bool GPIO_IsPttPressed()
 {
     return !GPIO_IsInputPinSet(GPIO_PIN_PTT);
 }
+
+#ifdef ENABLE_SI4732
+/* Si4732 RST on PA14 (active low): drive low to reset; release high to run (board + MCU pull-up). */
+static inline void GPIO_SI4732_RstHigh(void)
+{
+    GPIO_SetOutputPin(GPIO_PIN_SI4732_RST);
+}
+
+static inline void GPIO_SI4732_RstLow(void)
+{
+    GPIO_ResetOutputPin(GPIO_PIN_SI4732_RST);
+}
+#endif
 
 #endif
