@@ -111,6 +111,9 @@ void BOARD_GPIO_Init(void)
     #if defined(ENABLE_FMRADIO)
         GPIO_SetBit(&GPIOB->DATA, GPIOB_PIN_BK1080);
     #endif
+#if defined(ENABLE_SI4732)
+    GPIO_SI4732_RstLow();
+#endif
 }
 
 void BOARD_PORTCON_Init(void)

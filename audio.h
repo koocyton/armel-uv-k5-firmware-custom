@@ -56,6 +56,26 @@ static inline void AUDIO_AudioPathOff(void) {
     GPIO_ClearBit(&GPIOC->DATA, GPIOC_PIN_AUDIO_PATH);
 }
 
+#ifdef ENABLE_FMRADIO
+#ifdef ENABLE_FM_SI4732_AUDIO_PATH_INVERTED
+static inline void AUDIO_AudioPathOn_FM(void) {
+    AUDIO_AudioPathOff();
+}
+
+static inline void AUDIO_AudioPathOff_FM(void) {
+    AUDIO_AudioPathOn();
+}
+#else
+static inline void AUDIO_AudioPathOn_FM(void) {
+    AUDIO_AudioPathOn();
+}
+
+static inline void AUDIO_AudioPathOff_FM(void) {
+    AUDIO_AudioPathOff();
+}
+#endif
+#endif
+
 #ifdef ENABLE_VOICE
     typedef enum VOICE_ID_t  VOICE_ID_t;
 

@@ -129,6 +129,9 @@ void SETTINGS_InitEEPROM(void)
     // 0E40..0E67
     EEPROM_ReadBuffer(0x0E40, gFM_Channels, sizeof(gFM_Channels));
     FM_ConfigureChannelState();
+#ifdef ENABLE_FM_SI4732
+    FM_LoadAMFrequencyFromEeprom();
+#endif
 #endif
 
     // 0E90..0E97
@@ -564,9 +567,18 @@ void SETTINGS_SaveFM(void)
         fmCfg.isMrMode = gEeprom.FM_IsMrMode;
         fmCfg.band     = gEeprom.FM_Band;
         //fmCfg.space    = gEeprom.FM_Space;
+#ifdef ENABLE_FM_SI4732
+        {
+            uint32_t hz = (uint32_t)gEeprom.FM_SelectedFrequency * 100000U;
+            fmCfg.__raw[4] = (uint8_t)(hz & 0xFFU);
+            fmCfg.__raw[5] = (uint8_t)((hz >> 8) & 0xFFU);
+            fmCfg.__raw[6] = (uint8_t)((hz >> 16) & 0xFFU);
+            fmCfg.__raw[7] = (uint8_t)((hz >> 24) & 0xFFU);
+        }
+#endif
         EEPROM_WriteBuffer(0x0E88, fmCfg.__raw);
 
-        for (unsigned i = 0; i < 5; i++)
+        for (unsigned i = 0; i < (FM_CHANNELS_MAX / 4U); i++)
             EEPROM_WriteBuffer(0x0E40 + (i * 8), &gFM_Channels[i * 4]);
     }
 #endif

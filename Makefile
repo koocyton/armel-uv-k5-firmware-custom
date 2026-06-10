@@ -5,6 +5,7 @@
 
 # ---- STOCK QUANSHENG FEATURES ----
 ENABLE_FMRADIO                  ?= 0
+ENABLE_SI4732                   ?= 0
 ENABLE_UART                     ?= 1
 ENABLE_AIRCOPY                  ?= 0
 ENABLE_NOAA                     ?= 0
@@ -80,6 +81,9 @@ ENABLE_SWD                      ?= 0
 ENABLE_OVERLAY                  ?= 0
 ENABLE_LTO                      ?= 1
 ENABLE_EXPERIMENTAL_CLFAGS      ?= 1
+ENABLE_FM_SI4732_AUDIO_PATH_INVERTED ?= 0
+ENABLE_SI4732_AM_USE_FMI        ?= 0
+SI47XX_FM_DEEMPH_75             ?= 0
 
 #############################################################
 
@@ -118,7 +122,10 @@ ifeq ($(ENABLE_UART),1)
 	OBJS += driver/aes.o
 endif
 OBJS += driver/backlight.o
-ifeq ($(ENABLE_FMRADIO),1)
+ifeq ($(ENABLE_SI4732),1)
+	OBJS += driver/si4732.o
+	OBJS += driver/si473x.o
+else ifeq ($(ENABLE_FMRADIO),1)
 	OBJS += driver/bk1080.o
 endif
 OBJS += driver/bk4819.o
@@ -155,7 +162,9 @@ endif
 ifeq ($(ENABLE_FLASHLIGHT),1)
 	OBJS += app/flashlight.o
 endif
-ifeq ($(ENABLE_FMRADIO),1)
+ifeq ($(ENABLE_SI4732),1)
+	OBJS += app/fm_si4732.o
+else ifeq ($(ENABLE_FMRADIO),1)
 	OBJS += app/fm.o
 endif
 OBJS += app/generic.o
@@ -194,7 +203,9 @@ ifeq ($(ENABLE_AIRCOPY),1)
 	OBJS += ui/aircopy.o
 endif
 OBJS += ui/battery.o
-ifeq ($(ENABLE_FMRADIO),1)
+ifeq ($(ENABLE_SI4732),1)
+	OBJS += ui/fmradio_si4732.o
+else ifeq ($(ENABLE_FMRADIO),1)
 	OBJS += ui/fmradio.o
 endif
 OBJS += ui/helper.o
@@ -326,6 +337,19 @@ ifeq ($(ENABLE_AIRCOPY),1)
 endif
 ifeq ($(ENABLE_FMRADIO),1)
 	CFLAGS += -DENABLE_FMRADIO
+endif
+ifeq ($(ENABLE_SI4732),1)
+	CFLAGS += -DENABLE_SI4732
+	CFLAGS += -DENABLE_FM_SI4732
+endif
+ifeq ($(ENABLE_FM_SI4732_AUDIO_PATH_INVERTED),1)
+	CFLAGS += -DENABLE_FM_SI4732_AUDIO_PATH_INVERTED
+endif
+ifeq ($(ENABLE_SI4732_AM_USE_FMI),1)
+	CFLAGS += -DENABLE_SI4732_AM_USE_FMI
+endif
+ifeq ($(SI47XX_FM_DEEMPH_75),1)
+	CFLAGS += -DSI47XX_FM_DEEMPH_75
 endif
 ifeq ($(ENABLE_UART),1)
 	CFLAGS += -DENABLE_UART

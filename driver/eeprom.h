@@ -21,6 +21,9 @@
 
 void EEPROM_ReadBuffer(uint16_t Address, void *pBuffer, uint8_t Size);
 void EEPROM_WriteBuffer(uint16_t Address, const void *pBuffer);
-
+#ifdef ENABLE_SI4732
+void I2C_EEPROM_ReadBuffer32(uint32_t Address, void *pBuffer, uint16_t Size);
+void I2C_EEPROM_WriteBuffer32(uint32_t Address, const void *pBuffer);
 #endif
 
+#endif

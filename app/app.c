@@ -1325,10 +1325,16 @@ static void CheckKeys(void)
         return;
     }
 
-    if (gDebounceCounter < key_repeat_delay_10ms || Key == KEY_INVALID) // the button is not held long enough for repeat yet, or not really pressed
+    uint16_t hold_threshold_10ms = key_repeat_delay_10ms;
+#if defined(ENABLE_FMRADIO) && defined(ENABLE_FM_SI4732)
+    if (gScreenToDisplay == DISPLAY_FM && Key == KEY_F)
+        hold_threshold_10ms = key_repeat_delay_10ms * 2U;
+#endif
+
+    if (gDebounceCounter < hold_threshold_10ms || Key == KEY_INVALID) // the button is not held long enough for repeat yet, or not really pressed
         return;
 
-    if (gDebounceCounter == key_repeat_delay_10ms) //initial key repeat with longer delay
+    if (gDebounceCounter == hold_threshold_10ms) //initial key repeat with longer delay
     {
         if (Key != KEY_PTT)
         {
@@ -1338,7 +1344,13 @@ static void CheckKeys(void)
     }
     else //subsequent fast key repeats
     {
-        if (Key == KEY_UP || Key == KEY_DOWN) // fast key repeats for up/down buttons
+        bool key_repeat_fast = (Key == KEY_UP || Key == KEY_DOWN);
+#if defined(ENABLE_FMRADIO) && defined(ENABLE_FM_SI4732)
+        if (gScreenToDisplay == DISPLAY_FM && (Key == KEY_SIDE1 || Key == KEY_SIDE2))
+            key_repeat_fast = true;
+#endif
+
+        if (key_repeat_fast) // fast key repeats for up/down buttons
         {
             gKeyBeingHeld = true;
             if ((gDebounceCounter % key_repeat_10ms) == 0)
@@ -1493,6 +1505,12 @@ void APP_TimeSlice10ms(void)
     }
 #endif
 
+
+#if defined(ENABLE_FMRADIO) && defined(ENABLE_FM_SI4732)
+    if (gScreenToDisplay == DISPLAY_FM) {
+        FM_TimeSlice10ms();
+    }
+#endif
 
     SCANNER_TimeSlice10ms();
 
@@ -2113,11 +2131,19 @@ static void ProcessKey(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
     else if (gWasFKeyPressed && (Key == KEY_SIDE1 || Key == KEY_SIDE2)) {
         ProcessKeysFunctions[gScreenToDisplay](Key, bKeyPressed, bKeyHeld);
     }
-    else if (Key != KEY_SIDE1 && Key != KEY_SIDE2 && gScreenToDisplay != DISPLAY_INVALID) {
+    else if (
+#if defined(ENABLE_FMRADIO) && defined(ENABLE_FM_SI4732)
+        (gScreenToDisplay == DISPLAY_FM && (Key == KEY_SIDE1 || Key == KEY_SIDE2)) ||
+#endif
+        (Key != KEY_SIDE1 && Key != KEY_SIDE2 && gScreenToDisplay != DISPLAY_INVALID)) {
         ProcessKeysFunctions[gScreenToDisplay](Key, bKeyPressed, bKeyHeld);
     }
 #else
-    else if (Key != KEY_SIDE1 && Key != KEY_SIDE2 && gScreenToDisplay != DISPLAY_INVALID) {
+    else if (
+#if defined(ENABLE_FMRADIO) && defined(ENABLE_FM_SI4732)
+        (gScreenToDisplay == DISPLAY_FM && (Key == KEY_SIDE1 || Key == KEY_SIDE2)) ||
+#endif
+        (Key != KEY_SIDE1 && Key != KEY_SIDE2 && gScreenToDisplay != DISPLAY_INVALID)) {
         ProcessKeysFunctions[gScreenToDisplay](Key, bKeyPressed, bKeyHeld);
     }
 #endif

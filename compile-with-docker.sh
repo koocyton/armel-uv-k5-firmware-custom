@@ -89,6 +89,37 @@ bandscope() {
         && cp f4hwn.bandscope* compiled-firmware/"
 }
 
+si4732() {
+    echo "📻 Compiling Si4732..."
+    docker run -v "$FIRMWARE_DIR:/app/compiled-firmware" "$IMAGE_NAME" /bin/bash -c "\
+        rm -f ./compiled-firmware/* && cd /app && make -s \
+        ENABLE_SI4732=1 \
+        ENABLE_FMRADIO=1 \
+        ENABLE_SPECTRUM=0 \
+        ENABLE_VOX=0 \
+        ENABLE_AIRCOPY=0 \
+        ENABLE_AUDIO_BAR=0 \
+        ENABLE_RSSI_BAR=0 \
+        ENABLE_FLASHLIGHT=0 \
+        ENABLE_KEEP_MEM_NAME=1 \
+        ENABLE_BIG_FREQ=1 \
+        ENABLE_SMALL_BOLD=0 \
+        ENABLE_FEAT_F4HWN_SCREENSHOT=0 \
+        ENABLE_FEAT_F4HWN_GAME=0 \
+        ENABLE_FEAT_F4HWN_SLEEP=0 \
+        ENABLE_FEAT_F4HWN_RESUME_STATE=0 \
+        ENABLE_FEAT_F4HWN_NARROWER=0 \
+        ENABLE_FEAT_F4HWN_INV=0 \
+        ENABLE_FEAT_F4HWN_CTR=0 \
+        ENABLE_FEAT_F4HWN_PMR=0 \
+        ENABLE_FEAT_F4HWN_GMRS_FRS_MURS=0 \
+        ENABLE_NOAA=0 \
+        ENABLE_FEAT_F4HWN_RESCUE_OPS=0 \
+        EDITION_STRING=Si4732 \
+        TARGET=f4hwn.si4732 \
+        && cp f4hwn.si4732* compiled-firmware/"
+}
+
 broadcast() {
     echo "📻 Compiling Broadcast..."
     docker run -v "$FIRMWARE_DIR:/app/compiled-firmware" "$IMAGE_NAME" /bin/bash -c "\
@@ -181,15 +212,17 @@ case "$1" in
     basic) basic ;;
     rescueops) rescueops ;;
     game) game ;;
+    si4732) si4732 ;;
     all)
         bandscope
         broadcast
         basic
         rescueops
         game
+        si4732
         ;;
     *)
-        echo "Usage: BASE=alpine:<tag> $0 {clean|custom|standard|bandscope|broadcast|basic|rescueops|game|all}"
+        echo "Usage: BASE=alpine:<tag> $0 {clean|custom|standard|bandscope|broadcast|basic|rescueops|game|si4732|all}"
         echo "Examples: BASE=alpine:3.22 … | BASE=alpine:3.21 … | BASE=alpine:3.19 … | BASE=alpine:edge …"
         exit 1
         ;;

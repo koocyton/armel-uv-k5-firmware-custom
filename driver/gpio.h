@@ -19,6 +19,8 @@
 
 #include <stdint.h>
 
+#include "bsp/dp32g030/gpio.h"
+
 enum GPIOA_PINS {
     GPIOA_PIN_KEYBOARD_0 = 3,
     GPIOA_PIN_KEYBOARD_1 = 4,
@@ -45,7 +47,8 @@ enum GPIOB_PINS {
     GPIOB_PIN_SWD_IO     = 11, // Shared with ST7565!
     GPIOB_PIN_SWD_CLK    = 14,
 
-    GPIOB_PIN_BK1080     = 15
+    GPIOB_PIN_BK1080     = 15,
+    GPIOB_PIN_SI4732_RST = GPIOB_PIN_BK1080
 };
 
 enum GPIOC_PINS {
@@ -74,5 +77,14 @@ static inline void GPIO_SetBit(volatile uint32_t *pReg, uint8_t Bit) {
     *pReg |= 1U << Bit;
 }
 
+#ifdef ENABLE_SI4732
+static inline void GPIO_SI4732_RstHigh(void) {
+    GPIO_ClearBit(&GPIOB->DATA, GPIOB_PIN_SI4732_RST);
+}
+
+static inline void GPIO_SI4732_RstLow(void) {
+    GPIO_SetBit(&GPIOB->DATA, GPIOB_PIN_SI4732_RST);
+}
 #endif
 
+#endif

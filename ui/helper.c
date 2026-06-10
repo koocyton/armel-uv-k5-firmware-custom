@@ -323,6 +323,38 @@ void UI_DrawRectangleBuffer(uint8_t (*buffer)[128], int16_t x1, int16_t y1, int1
     UI_DrawLineBuffer(buffer, x1,y2, x2,y2, black);
 }
 
+void UI_FillRectangleBuffer(uint8_t (*buffer)[128], int16_t x1, int16_t y1, int16_t x2, int16_t y2, bool black)
+{
+    sort(&x1, &x2);
+    sort(&y1, &y2);
+
+    if (x1 < 0) x1 = 0;
+    if (y1 < 0) y1 = 0;
+    if (x2 > 127) x2 = 127;
+    if (y2 > 63) y2 = 63;
+
+    for (int16_t y = y1; y <= y2; y++)
+        for (int16_t x = x1; x <= x2; x++)
+            UI_DrawPixelBuffer(buffer, (uint8_t)x, (uint8_t)y, black);
+}
+
+void UI_InvertRectangleBuffer(uint8_t (*buffer)[128], int16_t x1, int16_t y1, int16_t x2, int16_t y2)
+{
+    sort(&x1, &x2);
+    sort(&y1, &y2);
+
+    if (x1 < 0) x1 = 0;
+    if (y1 < 0) y1 = 0;
+    if (x2 > 127) x2 = 127;
+    if (y2 > 63) y2 = 63;
+
+    for (int16_t y = y1; y <= y2; y++) {
+        const uint8_t mask = (uint8_t)(1U << (y % 8));
+        for (int16_t x = x1; x <= x2; x++)
+            buffer[y / 8][x] ^= mask;
+    }
+}
+
 
 void UI_DisplayPopup(const char *string)
 {

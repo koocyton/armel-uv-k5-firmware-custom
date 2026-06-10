@@ -8,10 +8,10 @@
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
  *     Unless required by applicable law or agreed to in writing, software
- *     distributed under the License is distributed on an "AS IS" BASIS,
- *     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *     See the License for the specific language governing permissions and
- *     limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 #ifndef APP_FM_H
@@ -19,7 +19,9 @@
 
 #ifdef ENABLE_FMRADIO
 
+#include <stdbool.h>
 #include "driver/keyboard.h"
+#include "misc.h"
 
 #define FM_CHANNEL_UP   0x01
 #define FM_CHANNEL_DOWN 0xFF
@@ -28,20 +30,18 @@ enum {
     FM_SCAN_OFF = 0U,
 };
 
-extern uint16_t          gFM_Channels[20];
+extern uint16_t          gFM_Channels[FM_CHANNELS_MAX];
 extern bool              gFmRadioMode;
 extern uint8_t           gFmRadioCountdown_500ms;
 extern volatile uint16_t gFmPlayCountdown_10ms;
 extern volatile int8_t   gFM_ScanState;
 extern bool              gFM_AutoScan;
 extern uint8_t           gFM_ChannelPosition;
-// Doubts about          whether this should be signed or not
 extern uint16_t          gFM_FrequencyDeviation;
 extern bool              gFM_FoundFrequency;
 extern uint16_t          gFM_RestoreCountdown_10ms;
 
 bool    FM_CheckValidChannel(uint8_t Channel);
-// returns first valid channel starting at Channel
 uint8_t FM_FindNextChannel(uint8_t Channel, uint8_t Direction);
 int     FM_ConfigureChannelState(void);
 void    FM_TurnOff(void);
@@ -55,6 +55,30 @@ void    FM_ProcessKeys(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld);
 
 void    FM_Play(void);
 void    FM_Start(void);
+
+#if defined(ENABLE_FM_SI4732)
+void    FM_TimeSlice10ms(void);
+uint16_t FM_GetFM_Step10(void);
+#include <stdint.h>
+uint16_t FM_GetAM_StepKHz(void);
+bool     FM_IsAMMode(void);
+bool     FM_IsSSBMode(void);
+void     FM_LoadAMFrequencyFromEeprom(void);
+uint8_t  FM_GetFM_OptionFocus(void);
+uint8_t  FM_GetFM_AudioProfile(void);
+uint8_t  FM_GetFM_BW_Index(void);
+bool     FM_GetFM_UseFMI(void);
+uint8_t  FM_GetAM_OptionFocus(void);
+uint8_t  FM_GetAM_LnaIndex(void);
+uint8_t  FM_GetAM_BW_Index(void);
+uint8_t  FM_GetAM_StepIndex(void);
+int16_t  FM_GetAM_BfoHz(void);
+uint8_t  FM_GetAM_AvcIndex(void);
+uint8_t  FM_GetAM_SoftMuteIndex(void);
+uint8_t  FM_GetSSB_AvcIndex(void);
+uint8_t  FM_GetSSB_SoftMuteIndex(void);
+bool     FM_GetSSB_AgcOn(void);
+#endif
 
 #endif
 
