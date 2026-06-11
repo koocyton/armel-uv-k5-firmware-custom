@@ -417,11 +417,6 @@ int MENU_GetLimits(uint8_t menu_id, int32_t *pMin, int32_t *pMax)
             //*pMin = 0;
             *pMax = ARRAY_SIZE(gSubMenu_SET_LCK) - 1;
             break;
-        case MENU_SET_MET:
-        case MENU_SET_GUI:
-            //*pMin = 0;
-            *pMax = ARRAY_SIZE(gSubMenu_SET_MET) - 1;
-            break;
         #ifdef ENABLE_FEAT_F4HWN_NARROWER
             case MENU_SET_NFM:
                 //*pMin = 0;
@@ -941,12 +936,6 @@ void MENU_AcceptSetting(void)
         case MENU_SET_LCK:
             gSetting_set_lck = gSubMenuSelection;
             break;
-        case MENU_SET_MET:
-            gSetting_set_met = gSubMenuSelection;
-            break;
-        case MENU_SET_GUI:
-            gSetting_set_gui = gSubMenuSelection;
-            break;
         #ifdef ENABLE_FEAT_F4HWN_NARROWER
             case MENU_SET_NFM:
                 gSetting_set_nfm = gSubMenuSelection;
@@ -1387,12 +1376,6 @@ void MENU_ShowCurrentSetting(void)
             break;
         case MENU_SET_LCK:
             gSubMenuSelection = gSetting_set_lck;
-            break;
-        case MENU_SET_MET:
-            gSubMenuSelection = gSetting_set_met;
-            break;
-        case MENU_SET_GUI:
-            gSubMenuSelection = gSetting_set_gui;
             break;
         #ifdef ENABLE_FEAT_F4HWN_NARROWER
             case MENU_SET_NFM:

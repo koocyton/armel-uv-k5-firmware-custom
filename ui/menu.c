@@ -145,8 +145,6 @@ const t_menu_item MenuList[] =
     {"SetCtr",      MENU_SET_CTR       },
     {"SetInv",      MENU_SET_INV       },
     {"SetLck",      MENU_SET_LCK       },
-    {"SetMet",      MENU_SET_MET       },
-    {"SetGUI",      MENU_SET_GUI       },
     {"SetTmr",      MENU_SET_TMR       },
 #ifdef ENABLE_FEAT_F4HWN_SLEEP
     {"SetOff",       MENU_SET_OFF      },
@@ -392,12 +390,6 @@ const char gSubMenu_SCRAMBLER[][7] =
     {
         "KEYS",
         "KEYS+PTT"
-    };
-
-    const char gSubMenu_SET_MET[][8] =
-    {
-        "TINY",
-        "CLASSIC"
     };
 
     #ifdef ENABLE_FEAT_F4HWN_NARROWER
@@ -1127,11 +1119,6 @@ void UI_DisplayMenu(void)
 
         case MENU_SET_LCK:
             strcpy(String, gSubMenu_SET_LCK[gSubMenuSelection]);
-            break;
-
-        case MENU_SET_MET:
-        case MENU_SET_GUI:
-            strcpy(String, gSubMenu_SET_MET[gSubMenuSelection]); // Same as SET_MET
             break;
 
         #ifdef ENABLE_FEAT_F4HWN_NARROWER

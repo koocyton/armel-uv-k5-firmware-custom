@@ -111,45 +111,25 @@ static void DrawLevelBar(uint8_t xpos, uint8_t line, uint8_t level, uint8_t bars
 
     for(uint8_t i = 0; i < level; i++) {
 #ifdef ENABLE_FEAT_F4HWN
-        if(gSetting_set_met)
-        {
-            const char hollowBar[] = {
-                0b01111111,
-                0b01000001,
-                0b01000001,
-                0b01111111
-            };
+        const char hollowBar[] = {
+            0b00111110,
+            0b00100010,
+            0b00100010,
+            0b00111110
+        };
 
-            if(i < bars - 4) {
-                for(uint8_t j = 0; j < 4; j++)
-                    p_line[xpos + i * 5 + j] = (~(0x7F >> (i + 1))) & 0x7F;
-            }
-            else {
-                memcpy(p_line + (xpos + i * 5), &hollowBar, ARRAY_SIZE(hollowBar));
-            }
+        const char simpleBar[] = {
+            0b00111110,
+            0b00111110,
+            0b00111110,
+            0b00111110
+        };
+
+        if(i < bars - 4) {
+            memcpy(p_line + (xpos + i * 5), &simpleBar, ARRAY_SIZE(simpleBar));
         }
-        else
-        {
-            const char hollowBar[] = {
-                0b00111110,
-                0b00100010,
-                0b00100010,
-                0b00111110
-            };
-
-            const char simpleBar[] = {
-                0b00111110,
-                0b00111110,
-                0b00111110,
-                0b00111110
-            };
-
-            if(i < bars - 4) {
-                memcpy(p_line + (xpos + i * 5), &simpleBar, ARRAY_SIZE(simpleBar));
-            }
-            else {
-                memcpy(p_line + (xpos + i * 5), &hollowBar, ARRAY_SIZE(hollowBar));
-            }
+        else {
+            memcpy(p_line + (xpos + i * 5), &hollowBar, ARRAY_SIZE(hollowBar));
         }
 #else
         if(i < bars - 4) {
@@ -359,19 +339,11 @@ void DisplayRSSIBar(const bool now)
 #endif
 
 #ifdef ENABLE_FEAT_F4HWN
-    if (gSetting_set_gui)
-    {
-        sprintf(str, "%3d", -rssi_dBm);
-        UI_PrintStringSmallNormal(str, LCD_WIDTH + 8, 0, line - 1);
-    }
+    sprintf(str, "% 4d %s", -rssi_dBm, "dBm");
+    if(isMainOnly())
+        GUI_DisplaySmallest(str, 2, 41, false, true);
     else
-    {
-        sprintf(str, "% 4d %s", -rssi_dBm, "dBm");
-        if(isMainOnly())
-            GUI_DisplaySmallest(str, 2, 41, false, true);
-        else
-            GUI_DisplaySmallest(str, 2, 25, false, true);
-    }
+        GUI_DisplaySmallest(str, 2, 25, false, true);
 
     if(overS9Bars == 0) {
         sprintf(str, "S%d", s_level);
@@ -1151,44 +1123,18 @@ void UI_DisplayMain(void)
             shift = -10;
         }
 
-        if (gSetting_set_gui)
-        {
-            UI_PrintStringSmallNormal(s, LCD_WIDTH + 22, 0, line + 1);
-            UI_PrintStringSmallNormal(t, LCD_WIDTH + 2, 0, line + 1);
-
-            if (isMainOnly() && !gDTMF_InputMode)
-            {
-                if(shift == 0)
-                {
-                    UI_PrintStringSmallNormal(String, 2, 0, 6);
-                }
-
-                if((vfoInfo->StepFrequency / 100) < 100)
-                {
-                    sprintf(String, "%d.%02uK", vfoInfo->StepFrequency / 100, vfoInfo->StepFrequency % 100);
-                }
-                else
-                {
-                    sprintf(String, "%dK", vfoInfo->StepFrequency / 100);               
-                }
-                UI_PrintStringSmallNormal(String, 46, 0, 6);
-            }
+        if ((s != NULL) && (s[0] != '\0')) {
+            GUI_DisplaySmallest(s, 58, line == 0 ? 17 : 49, false, true);
         }
-        else
-        {
-            if ((s != NULL) && (s[0] != '\0')) {
-                GUI_DisplaySmallest(s, 58, line == 0 ? 17 : 49, false, true);
-            }
 
-            if ((t != NULL) && (t[0] != '\0')) {
-                GUI_DisplaySmallest(t, 3, line == 0 ? 17 : 49, false, true);
-            }
-
-            GUI_DisplaySmallest(String, 68 + shift, line == 0 ? 17 : 49, false, true);
-
-            //sprintf(String, "%d.%02u", vfoInfo->StepFrequency / 100, vfoInfo->StepFrequency % 100);
-            //GUI_DisplaySmallest(String, 91, line == 0 ? 2 : 34, false, true);
+        if ((t != NULL) && (t[0] != '\0')) {
+            GUI_DisplaySmallest(t, 3, line == 0 ? 17 : 49, false, true);
         }
+
+        GUI_DisplaySmallest(String, 68 + shift, line == 0 ? 17 : 49, false, true);
+
+        //sprintf(String, "%d.%02u", vfoInfo->StepFrequency / 100, vfoInfo->StepFrequency % 100);
+        //GUI_DisplaySmallest(String, 91, line == 0 ? 2 : 34, false, true);
 #else
         UI_PrintStringSmallNormal(s, LCD_WIDTH + 24, 0, line + 1);
 #endif
@@ -1210,22 +1156,10 @@ void UI_DisplayMain(void)
                 userPower = false;
             }
 
-            if (gSetting_set_gui)
-            {
-                const char pwr_short[][3] = {"L1", "L2", "L3", "L4", "L5", "M", "H"};
-                //sprintf(String, "%s", pwr_short[currentPower]);
-                //UI_PrintStringSmallNormal(String, LCD_WIDTH + 42, 0, line + 1);
-                UI_PrintStringSmallNormal(pwr_short[currentPower], LCD_WIDTH + 42, 0, line + 1);
-
-                arrowPos = 38;
-            }
-            else
-            {
-                const char pwr_long[][5] = {"LOW1", "LOW2", "LOW3", "LOW4", "LOW5", "MID", "HIGH"};
-                //sprintf(String, "%s", pwr_long[currentPower]);
-                //GUI_DisplaySmallest(String, 24, line == 0 ? 17 : 49, false, true);
-                GUI_DisplaySmallest(pwr_long[currentPower], 24, line == 0 ? 17 : 49, false, true);
-            }
+            const char pwr_long[][5] = {"LOW1", "LOW2", "LOW3", "LOW4", "LOW5", "MID", "HIGH"};
+            //sprintf(String, "%s", pwr_long[currentPower]);
+            //GUI_DisplaySmallest(String, 24, line == 0 ? 17 : 49, false, true);
+            GUI_DisplaySmallest(pwr_long[currentPower], 24, line == 0 ? 17 : 49, false, true);
 
             if(userPower == true)
             {
@@ -1249,25 +1183,18 @@ void UI_DisplayMain(void)
             #endif
 
 #if ENABLE_FEAT_F4HWN
-        if (gSetting_set_gui)
+        #ifdef ENABLE_FEAT_F4HWN_RESCUE_OPS
+        if(i == 3)
         {
-            UI_PrintStringSmallNormal(dir_list[i], LCD_WIDTH + 60, 0, line + 1);
+            GUI_DisplaySmallest(dir_list[i], 43, line == 0 ? 17 : 49, false, true);
         }
         else
         {
-            #ifdef ENABLE_FEAT_F4HWN_RESCUE_OPS
-            if(i == 3)
-            {
-                GUI_DisplaySmallest(dir_list[i], 43, line == 0 ? 17 : 49, false, true);
-            }
-            else
-            {
-            #endif
-            UI_PrintStringSmallNormal(dir_list[i], LCD_WIDTH + 41, 0, line + 1);
-            #ifdef ENABLE_FEAT_F4HWN_RESCUE_OPS
-            }
-            #endif
+        #endif
+        UI_PrintStringSmallNormal(dir_list[i], LCD_WIDTH + 41, 0, line + 1);
+        #ifdef ENABLE_FEAT_F4HWN_RESCUE_OPS
         }
+        #endif
 #else
             UI_PrintStringSmallNormal(dir_list[i], LCD_WIDTH + 54, 0, line + 1);
 #endif
@@ -1277,14 +1204,7 @@ void UI_DisplayMain(void)
         if (vfoInfo->FrequencyReverse)
 #if ENABLE_FEAT_F4HWN
         {
-            if (gSetting_set_gui)
-            {
-                UI_PrintStringSmallNormal("R", LCD_WIDTH + 68, 0, line + 1);
-            }
-            else
-            {
-                GUI_DisplaySmallest("R", 51, line == 0 ? 17 : 49, false, true);
-            }
+            GUI_DisplaySmallest("R", 51, line == 0 ? 17 : 49, false, true);
         }
 #else
             UI_PrintStringSmallNormal("R", LCD_WIDTH + 62, 0, line + 1);
@@ -1299,27 +1219,11 @@ void UI_DisplayMain(void)
                 narrower = 1;
             }
 
-            if (gSetting_set_gui)
-            {
-                const char *bandWidthNames[] = {"W", "N", "N+"};
-                UI_PrintStringSmallNormal(bandWidthNames[vfoInfo->CHANNEL_BANDWIDTH + narrower], LCD_WIDTH + 80, 0, line + 1);
-            }
-            else
-            {
-                const char *bandWidthNames[] = {"WIDE", "NAR", "NAR+"};
-                GUI_DisplaySmallest(bandWidthNames[vfoInfo->CHANNEL_BANDWIDTH + narrower], 91, line == 0 ? 17 : 49, false, true);
-            }
+            const char *bandWidthNames[] = {"WIDE", "NAR", "NAR+"};
+            GUI_DisplaySmallest(bandWidthNames[vfoInfo->CHANNEL_BANDWIDTH + narrower], 91, line == 0 ? 17 : 49, false, true);
         #else
-            if (gSetting_set_gui)
-            {
-                const char *bandWidthNames[] = {"W", "N"};
-                UI_PrintStringSmallNormal(bandWidthNames[vfoInfo->CHANNEL_BANDWIDTH], LCD_WIDTH + 80, 0, line + 1);
-            }
-            else
-            {
-                const char *bandWidthNames[] = {"WIDE", "NAR"};
-                GUI_DisplaySmallest(bandWidthNames[vfoInfo->CHANNEL_BANDWIDTH], 91, line == 0 ? 17 : 49, false, true);
-            }
+            const char *bandWidthNames[] = {"WIDE", "NAR"};
+            GUI_DisplaySmallest(bandWidthNames[vfoInfo->CHANNEL_BANDWIDTH], 91, line == 0 ? 17 : 49, false, true);
         #endif
 #else
         if (vfoInfo->CHANNEL_BANDWIDTH == BANDWIDTH_NARROW)
@@ -1339,32 +1243,6 @@ void UI_DisplayMain(void)
 #endif
 
 #ifdef ENABLE_FEAT_F4HWN
-        /*
-        if(isMainVFO)   
-        {
-            if(gMonitor)
-            {
-                sprintf(String, "%s", "MONI");
-            }
-            
-            if (gSetting_set_gui)
-            {
-                if(!gMonitor)
-                {
-                    sprintf(String, "SQL%d", gEeprom.SQUELCH_LEVEL);
-                }
-                UI_PrintStringSmallNormal(String, LCD_WIDTH + 98, 0, line + 1);
-            }
-            else
-            {
-                if(!gMonitor)
-                {
-                    sprintf(String, "SQL%d", gEeprom.SQUELCH_LEVEL);
-                }
-                GUI_DisplaySmallest(String, 110, line == 0 ? 17 : 49, false, true);
-            }
-        }
-        */
         if (isMainVFO) {
            if (gMonitor) {
                 strcpy(String, "MONI");
@@ -1372,11 +1250,7 @@ void UI_DisplayMain(void)
                 sprintf(String, "SQL%d", gEeprom.SQUELCH_LEVEL);
            }
 
-           if (gSetting_set_gui) {
-                UI_PrintStringSmallNormal(String, LCD_WIDTH + 98, 0, line + 1);
-           } else {
-                GUI_DisplaySmallest(String, 110, line == 0 ? 17 : 49, false, true);
-           }
+           GUI_DisplaySmallest(String, 110, line == 0 ? 17 : 49, false, true);
         }
 #endif
     }

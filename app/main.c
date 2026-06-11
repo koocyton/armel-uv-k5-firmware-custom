@@ -208,16 +208,6 @@ static void processFKeyFunction(const KEY_Code_t Key, const bool beep)
             break;
 
         case KEY_4:
-            gWasFKeyPressed          = false;
-
-            gBackup_CROSS_BAND_RX_TX  = gEeprom.CROSS_BAND_RX_TX;
-            gEeprom.CROSS_BAND_RX_TX = CROSS_BAND_OFF;
-            gUpdateStatus            = true;        
-            if (beep)
-                gBeepToPlay = BEEP_1KHZ_60MS_OPTIONAL;
-
-            SCANNER_Start(false);
-            gRequestDisplayScreen = DISPLAY_SCANNER;
             break;
 
         case KEY_5:
@@ -770,9 +760,6 @@ static void MAIN_Key_STAR(bool bKeyPressed, bool bKeyHeld)
         SETTINGS_WriteCurrentState();
         #endif
         */
-        ACTION_Scan(false);// toggle scanning
-
-        gBeepToPlay = BEEP_1KHZ_60MS_OPTIONAL;
         return;
     }
 
@@ -815,12 +802,6 @@ static void MAIN_Key_STAR(bool bKeyPressed, bool bKeyHeld)
             return;
         }               
 #endif
-        // scan the CTCSS/DCS code
-        gBackup_CROSS_BAND_RX_TX  = gEeprom.CROSS_BAND_RX_TX;
-        gEeprom.CROSS_BAND_RX_TX = CROSS_BAND_OFF;
-
-        SCANNER_Start(true);
-        gRequestDisplayScreen = DISPLAY_SCANNER;
     }
     
     //gPttWasReleased = true; Fixed issue #138

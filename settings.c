@@ -303,7 +303,7 @@ void SETTINGS_InitEEPROM(void)
     gSetting_live_DTMF_decoder = !!(Data[7] & (1u << 1));
     gSetting_battery_text      = (((Data[7] >> 2) & 3u) <= 2) ? (Data[7] >> 2) & 3 : 2;
     #ifdef ENABLE_AUDIO_BAR
-        gSetting_mic_bar       = !!(Data[7] & (1u << 4));
+        gSetting_mic_bar       = true;
     #endif
     #ifndef ENABLE_FEAT_F4HWN
         #ifdef ENABLE_AM_FIX
@@ -357,8 +357,6 @@ void SETTINGS_InitEEPROM(void)
 
         gSetting_set_inv = (((tmp >> 0) & 0x01) < 2) ? ((tmp >> 0) & 0x01): 0;
         gSetting_set_lck = (((tmp >> 1) & 0x01) < 2) ? ((tmp >> 1) & 0x01): 0;
-        gSetting_set_met = (((tmp >> 2) & 0x01) < 2) ? ((tmp >> 2) & 0x01): 0;
-        gSetting_set_gui = (((tmp >> 3) & 0x01) < 2) ? ((tmp >> 3) & 0x01): 0;
         gSetting_set_ctr = (((Data[5] & 0x0F)) > 00 && ((Data[5] & 0x0F)) < 16) ? ((Data[5] & 0x0F)) : 10;
 
         gSetting_set_tmr = ((Data[4] & 1) < 2) ? (Data[4] & 1): 0;
@@ -372,8 +370,6 @@ void SETTINGS_InitEEPROM(void)
         gSetting_set_inv = 0;
 #endif
         gSetting_set_lck = (tmp >> 1) & 0x01;
-        gSetting_set_met = (tmp >> 2) & 0x01;
-        gSetting_set_gui = (tmp >> 3) & 0x01;
 
 #ifdef ENABLE_FEAT_F4HWN_CTR
         int ctr_value = Data[5] & 0x0F;
@@ -778,7 +774,7 @@ void SETTINGS_SaveSettings(void)
     if (!gSetting_live_DTMF_decoder) State[7] &= ~(1u << 1);
     State[7] = (State[7] & ~(3u << 2)) | ((gSetting_battery_text & 3u) << 2);
     #ifdef ENABLE_AUDIO_BAR
-        if (!gSetting_mic_bar)           State[7] &= ~(1u << 4);
+        State[7] |= (1u << 4);
     #endif
     #ifndef ENABLE_FEAT_F4HWN
         #ifdef ENABLE_AM_FIX
@@ -808,10 +804,6 @@ void SETTINGS_SaveSettings(void)
         tmp = tmp | (1 << 0);
     if (gSetting_set_lck == 1)
         tmp = tmp | (1 << 1);
-    if (gSetting_set_met == 1)
-        tmp = tmp | (1 << 2);
-    if (gSetting_set_gui == 1)
-        tmp = tmp | (1 << 3);
     */
 
 #ifdef ENABLE_FEAT_F4HWN_SLEEP 
@@ -821,9 +813,7 @@ void SETTINGS_SaveSettings(void)
 #endif
 
     tmp =   (gSetting_set_inv << 0) |
-            (gSetting_set_lck << 1) |
-            (gSetting_set_met << 2) |
-            (gSetting_set_gui << 3);
+            (gSetting_set_lck << 1);
 
     State[5] = ((tmp << 4) | (gSetting_set_ctr & 0x0F));
     State[6] = ((gSetting_set_tot << 4) | (gSetting_set_eot & 0x0F));

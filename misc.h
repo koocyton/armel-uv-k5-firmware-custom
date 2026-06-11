@@ -178,8 +178,6 @@ extern enum BacklightOnRxTx_t gSetting_backlight_on_tx_rx;
     extern bool               gSetting_set_inv;
     extern uint8_t            gSetting_set_eot;
     extern bool               gSetting_set_lck;
-    extern bool               gSetting_set_met;
-    extern bool               gSetting_set_gui;
     #ifdef ENABLE_FEAT_F4HWN_NARROWER
         extern bool               gSetting_set_nfm;
     #endif

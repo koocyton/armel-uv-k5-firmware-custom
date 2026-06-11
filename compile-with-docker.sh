@@ -98,7 +98,7 @@ si4732() {
         ENABLE_SPECTRUM=0 \
         ENABLE_VOX=0 \
         ENABLE_AIRCOPY=0 \
-        ENABLE_AUDIO_BAR=0 \
+        ENABLE_AUDIO_BAR=1 \
         ENABLE_RSSI_BAR=0 \
         ENABLE_FLASHLIGHT=0 \
         ENABLE_KEEP_MEM_NAME=1 \
