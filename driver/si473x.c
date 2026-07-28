@@ -461,6 +461,67 @@ void SI47XX_SetSeekAmLimits(uint16_t bottom, uint16_t top) {
   sendProperty(PROP_AM_SEEK_BAND_TOP, top);
 }
 
+static uint8_t SI47XX_ReadTuneStatus(uint8_t arg, uint8_t *resp) {
+  uint8_t cmd[2];
+
+  cmd[0] = (si4732mode == SI47XX_FM) ? CMD_FM_TUNE_STATUS : CMD_AM_TUNE_STATUS;
+  cmd[1] = arg;
+  waitToSend();
+  SI47XX_WriteBuffer(cmd, 2);
+  waitToSend();
+  SI47XX_ReadBuffer(resp, 7);
+  siCurrentFreq = (uint16_t)(((uint16_t)resp[2] << 8) | resp[3]);
+  return resp[0];
+}
+
+void SI47XX_SeekStartUp(uint16_t spacing) {
+  uint8_t cmd[2];
+
+  if (si4732mode == SI47XX_FM) {
+    /* FM spacing is expressed in 10 kHz units. */
+    SI47XX_SetSeekFmLimits(8750, 10800);
+    sendProperty(PROP_FM_SEEK_FREQ_SPACING, spacing);
+    sendProperty(PROP_FM_SEEK_TUNE_RSSI_THRESHOLD, 12);
+    sendProperty(PROP_FM_SEEK_TUNE_SNR_THRESHOLD, 4);
+    cmd[0] = CMD_FM_SEEK_START;
+  } else if (si4732mode == SI47XX_AM) {
+    /* AM spacing is expressed in kHz. */
+    SI47XX_SetSeekAmLimits(500, 30000);
+    sendProperty(PROP_AM_SEEK_FREQ_SPACING, spacing);
+    sendProperty(PROP_AM_SEEK_TUNE_RSSI_THRESHOLD, 10);
+    sendProperty(PROP_AM_SEEK_TUNE_SNR_THRESHOLD, 3);
+    cmd[0] = CMD_AM_SEEK_START;
+  } else {
+    return;
+  }
+
+  /* WRAP makes a seek crossing the upper band edge continue at the bottom. */
+  cmd[1] = SEEK_START_ARG1_SEEK_UP | SEEK_START_ARG1_WRAP;
+  waitToSend();
+  SI47XX_WriteBuffer(cmd, 2);
+}
+
+bool SI47XX_SeekPoll(uint16_t *frequency, bool *valid) {
+  uint8_t resp[7];
+  const uint8_t status = SI47XX_ReadTuneStatus(0, resp);
+  const bool complete = (status & STATUS_STCINT) != 0;
+
+  if (frequency != NULL)
+    *frequency = siCurrentFreq;
+  if (valid != NULL)
+    *valid = (resp[1] & FIELD_TUNE_STATUS_RESP1_VALID) != 0;
+
+  if (complete)
+    SI47XX_ReadTuneStatus(TUNE_STATUS_ARG1_CLEAR_INT, resp);
+  return complete;
+}
+
+uint16_t SI47XX_SeekCancel(void) {
+  uint8_t resp[7];
+  SI47XX_ReadTuneStatus(TUNE_STATUS_ARG1_CANCEL_SEEK | TUNE_STATUS_ARG1_CLEAR_INT, resp);
+  return siCurrentFreq;
+}
+
 static const uint8_t am_att_agcidx[] = { 0, 1, 5, 15, 26 };
 
 void SI47XX_SetAMAgcAtt(bool agcOn, uint8_t attIndex) {

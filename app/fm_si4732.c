@@ -283,6 +283,10 @@ static void Key_FUNC(KEY_Code_t Key, uint8_t state);
 /* 30 秒窗口内每 2 秒自动刷新 RSSI（仅用于 DISPLAY_FM 画面） */
 static uint16_t gFM_AutoRssiWindow_10ms = 0;
 static uint16_t gFM_AutoRssiNext_10ms = 0;
+static bool gFM_SeekActive = false;
+static uint8_t gFM_SeekPollCountdown_10ms = 0;
+
+#define FM_SEEK_POLL_INTERVAL_10MS 5U
 
 static void FM_StartAutoRssiRefresh(void)
 {
@@ -290,8 +294,78 @@ static void FM_StartAutoRssiRefresh(void)
 	gFM_AutoRssiNext_10ms = 2U * 100U;
 }
 
+static void FM_UpdateFrequencyFromSeek(uint16_t frequency)
+{
+	if (si4732mode == SI47XX_FM) {
+		/* Si4732 reports FM in 10 kHz; the radio UI stores it in 100 kHz. */
+		const uint16_t uiFrequency = (uint16_t)((frequency + 5U) / 10U);
+		gEeprom.FM_FrequencyPlaying = uiFrequency;
+		gEeprom.FM_SelectedFrequency = uiFrequency;
+	} else {
+		gAM_FrequencyKHz = frequency;
+	}
+	FM_RequestFMDisplayRefresh();
+}
+
+static void FM_SaveSeekFrequency(void)
+{
+	if (si4732mode == SI47XX_FM)
+		gRequestSaveFM = true;
+	else
+		FM_SaveAMFreqToEeprom();
+}
+
+static void FM_StartSeekUp(void)
+{
+	const uint16_t spacing = (si4732mode == SI47XX_FM)
+		? 10U /* FM seek uses the standard 100 kHz channel raster. */
+		: FM_GetAM_StepKHz();
+
+	SI47XX_SeekStartUp(spacing);
+	gFM_SeekActive = true;
+	gFM_SeekPollCountdown_10ms = 1;
+	gInputBoxIndex = 0;
+	FM_RequestFMDisplayRefresh();
+}
+
+static void FM_StopSeek(void)
+{
+	if (!gFM_SeekActive)
+		return;
+
+	FM_UpdateFrequencyFromSeek(SI47XX_SeekCancel());
+	gFM_SeekActive = false;
+	gFM_SeekPollCountdown_10ms = 0;
+	FM_SaveSeekFrequency();
+}
+
 void FM_TimeSlice10ms(void)
 {
+	if (gFM_SeekActive) {
+		if (gFM_SeekPollCountdown_10ms > 0)
+			gFM_SeekPollCountdown_10ms--;
+
+		if (gFM_SeekPollCountdown_10ms == 0) {
+			uint16_t frequency;
+			bool valid;
+			const bool complete = SI47XX_SeekPoll(&frequency, &valid);
+
+			FM_UpdateFrequencyFromSeek(frequency);
+			gFM_SeekPollCountdown_10ms = FM_SEEK_POLL_INTERVAL_10MS;
+
+			if (complete) {
+				if (valid) {
+					gFM_SeekActive = false;
+					gFM_SeekPollCountdown_10ms = 0;
+					FM_SaveSeekFrequency();
+				} else {
+					/* No valid station in this pass: wrap and keep searching. */
+					FM_StartSeekUp();
+				}
+			}
+		}
+	}
+
 	/* 30 秒后回到“无操作不刷新”的现有逻辑 */
 	if (gFM_AutoRssiWindow_10ms == 0)
 		return;
@@ -349,6 +423,7 @@ int FM_ConfigureChannelState(void)
 void FM_TurnOff(void)
 {
 #ifdef ENABLE_FM_SI4732
+	FM_StopSeek();
 	/* Persist AM frequency so next boot / switch-to-AM restores it */
 	if (SI47XX_IsAMFamily())
 		FM_SaveAMFreqToEeprom();
@@ -939,6 +1014,15 @@ void FM_ProcessKeys(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 	if (bKeyPressed)
 		FM_StartAutoRssiRefresh();
 
+#ifdef ENABLE_FM_SI4732
+	/* While seeking, the next physical key press only stops at the live frequency. */
+	if (gFM_SeekActive && bKeyPressed) {
+		FM_StopSeek();
+		gBeepToPlay = BEEP_1KHZ_60MS_OPTIONAL;
+		return;
+	}
+#endif
+
 	switch (Key) {
 		case KEY_0:
 			Key_DIGITS(Key, state);
@@ -948,6 +1032,12 @@ void FM_ProcessKeys(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 			break;
 		case KEY_STAR:
 #ifdef ENABLE_FM_SI4732
+			if ((si4732mode == SI47XX_FM || si4732mode == SI47XX_AM) &&
+				gInputBoxIndex == 0 && state == BUTTON_EVENT_HELD) {
+				FM_StartSeekUp();
+				gBeepToPlay = BEEP_1KHZ_60MS_OPTIONAL;
+				break;
+			}
 			if (SI47XX_IsAMFamily() && gInputBoxIndex == 0 && state == BUTTON_EVENT_SHORT) {
 				/* * 键始终调整 STP（循环） */
 				gAM_StepIndex = (uint8_t)((gAM_StepIndex + 1) % AM_STEP_COUNT);
