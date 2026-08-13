@@ -268,45 +268,15 @@ static void UI_FM_DrawDashedStringAt(uint8_t x, uint8_t y, const char *s)
 	}
 }
 
-/* gFontSmall(6x8) 缩至 4x5（2/3），用于 RSSI/SNR */
-static void UI_FM_DrawSmallStringAtTwoThirds(uint8_t x, uint8_t y, const char *s)
+/* 与对讲机主界面频率下方扩展信息相同：gFont3x5（3x5 + 1px 间距） */
+static void UI_FM_DrawSmallestAt(uint8_t x, uint8_t y, const char *s)
 {
-	const uint8_t dstW = 4U;
-	const uint8_t dstH = 5U;
-	const uint8_t srcW = 6U;
-	const uint8_t srcH = 8U;
-
 	if (!s || !*s) return;
-	if (x >= 128) return;
-	if (y >= (FRAME_LINES * 8)) return;
-
-	uint8_t cx = x;
-	for (const char *p = s; *p; p++) {
-		const char c = *p;
-		if (c <= ' ' || c >= 127) {
-			cx = (uint8_t)(cx + dstW + 1U);
-			continue;
-		}
-		const uint8_t idx = (uint8_t)(c - ' ' - 1);
-		for (uint8_t dc = 0; dc < dstW; dc++) {
-			const uint8_t sc = (uint8_t)((dc * srcW + (dstW / 2U)) / dstW);
-			const uint8_t colBits = gFontSmall[idx][sc];
-			for (uint8_t dr = 0; dr < dstH; dr++) {
-				const uint8_t sr = (uint8_t)((dr * srcH + (dstH / 2U)) / dstH);
-				if ((colBits >> sr) & 1U) {
-					const uint8_t px = (uint8_t)(cx + dc);
-					const uint8_t py = (uint8_t)(y + dr);
-					if (px < 128 && py < (FRAME_LINES * 8))
-						UI_DrawPixelBuffer(gFrameBuffer, px, py, true);
-				}
-			}
-		}
-		cx = (uint8_t)(cx + dstW + 1U);
-	}
+	GUI_DisplaySmallest(s, x, y, false, true);
 }
 
 /* 右端像素对齐 rightX */
-static void UI_FM_DrawSmallStringAtTwoThirdsRight(uint8_t rightX, uint8_t y, const char *s)
+static void UI_FM_DrawSmallestRight(uint8_t rightX, uint8_t y, const char *s)
 {
 	uint8_t n = 0;
 
@@ -314,9 +284,9 @@ static void UI_FM_DrawSmallStringAtTwoThirdsRight(uint8_t rightX, uint8_t y, con
 	while (s[n]) n++;
 	if (n == 0) return;
 
-	/* 每字 4px 宽 + 1px 间距；末字右缘 = leftX + n*5 - 2 */
-	const uint8_t leftX = (uint8_t)(rightX + 2U - n * 5U);
-	UI_FM_DrawSmallStringAtTwoThirds(leftX, y, s);
+	/* 每字 3px 宽 + 1px 间距；末字右缘 = leftX + (n-1)*4 + 2 */
+	const uint8_t leftX = (uint8_t)(rightX - 2U - (n - 1U) * 4U);
+	UI_FM_DrawSmallestAt(leftX, y, s);
 }
 
 /* 与 UI_FM_DrawSmeter 一致的进度条左右边界 */
@@ -438,15 +408,15 @@ static void UI_FM_DrawRsqBelowSmeter(uint8_t smeterX, uint8_t cells)
 	UI_FM_GetSmeterBarBounds(smeterX, cells, &barLeft, &barRight);
 	RSQ_GET();
 	sprintf(valStr, "RSSI %u", (unsigned)rsqStatus.resp.RSSI);
-	UI_FM_DrawSmallStringAtTwoThirds(barLeft, UI_FM_RSQ_Y, valStr);
+	UI_FM_DrawSmallestAt(barLeft, UI_FM_RSQ_Y, valStr);
 	sprintf(valStr, "SNR %u", (unsigned)rsqStatus.resp.SNR);
-	UI_FM_DrawSmallStringAtTwoThirdsRight((uint8_t)(barRight - UI_FM_SNR_LEFT_SHIFT), UI_FM_RSQ_Y, valStr);
+	UI_FM_DrawSmallestRight((uint8_t)(barRight - UI_FM_SNR_LEFT_SHIFT), UI_FM_RSQ_Y, valStr);
 }
 #endif
 
 #ifdef ENABLE_FM_SI4732
-/* 在任意像素 y 处绘制 gFontBig(7x16) 字符串，支持跨三行 framebuffer */
-static void UI_FM_DrawBigStringAt(uint8_t x, uint8_t y, const char *s)
+/* 在任意像素 y 处绘制 gFontBig(7x16)；xor=true 时与背景异或（黑底白字） */
+static void UI_FM_DrawBigStringAt(uint8_t x, uint8_t y, const char *s, bool invert)
 {
 	if (!s || !*s) return;
 	if (y >= (FRAME_LINES * 8)) return;
@@ -467,9 +437,15 @@ static void UI_FM_DrawBigStringAt(uint8_t x, uint8_t y, const char *s)
 			const uint16_t bits = (uint16_t)gFontBig[idx][col] |
 			                      ((uint16_t)gFontBig[idx][col + 7] << 8);
 			const uint32_t v = (uint32_t)bits << shift;
-			if (row < FRAME_LINES)        gFrameBuffer[row][cx]        |= (uint8_t)(v & 0xFF);
-			if (row + 1 < FRAME_LINES)    gFrameBuffer[row + 1][cx]    |= (uint8_t)((v >> 8) & 0xFF);
-			if (row + 2 < FRAME_LINES)    gFrameBuffer[row + 2][cx]    |= (uint8_t)((v >> 16) & 0xFF);
+			if (invert) {
+				if (row < FRAME_LINES)        gFrameBuffer[row][cx]        ^= (uint8_t)(v & 0xFF);
+				if (row + 1 < FRAME_LINES)    gFrameBuffer[row + 1][cx]    ^= (uint8_t)((v >> 8) & 0xFF);
+				if (row + 2 < FRAME_LINES)    gFrameBuffer[row + 2][cx]    ^= (uint8_t)((v >> 16) & 0xFF);
+			} else {
+				if (row < FRAME_LINES)        gFrameBuffer[row][cx]        |= (uint8_t)(v & 0xFF);
+				if (row + 1 < FRAME_LINES)    gFrameBuffer[row + 1][cx]    |= (uint8_t)((v >> 8) & 0xFF);
+				if (row + 2 < FRAME_LINES)    gFrameBuffer[row + 2][cx]    |= (uint8_t)((v >> 16) & 0xFF);
+			}
 			cx++;
 		}
 		cx = (uint8_t)(cx + 1); /* 字符间距 1px */
@@ -487,19 +463,16 @@ static void UI_FM_DrawWaitPopup(void)
 	/* gFontBig：7px 字宽 + 1px 间距 */
 	const uint8_t textW = (uint8_t)(sizeof(msg) - 1U) * 8U - 1U;
 
-	/* 虚点背板：稀疏点阵填充（约 1/8 密度，偶数行错位）
-	 * y%4==0 行点亮 x%4==0；y%4==2 行点亮 x%4==2；奇数行全空 */
-	for (int16_t y = 0; y < boxHeight; y++) {
-		for (int16_t x = 0; x < boxWidth; x++) {
-			const bool dot = ((y % 2) == 0) && ((x % 4) == (y % 4));
-			UI_DrawPixelBuffer(gFrameBuffer, (uint8_t)(x0 + x), (uint8_t)(y0 + y), dot);
-		}
-	}
+	/* 黑色实心背板 */
+	UI_FillRectangleBuffer(gFrameBuffer,
+		(uint8_t)x0, (uint8_t)y0,
+		(uint8_t)(x0 + boxWidth - 1), (uint8_t)(y0 + boxHeight - 1),
+		true);
 
 	const uint8_t textX = (uint8_t)(x0 + (boxWidth - textW) / 2);
 	const uint8_t textY = (uint8_t)(y0 + (boxHeight - 16) / 2);
-	/* WAIT 以实心黑字绘制在虚点背板上，与稀疏点阵形成对比 */
-	UI_FM_DrawBigStringAt(textX, textY, msg);
+	/* 黑底上 XOR 大字 → 反色白字 WAIT */
+	UI_FM_DrawBigStringAt(textX, textY, msg, true);
 }
 
 void UI_DisplayFmWait(void)

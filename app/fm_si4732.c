@@ -1170,10 +1170,14 @@ void FM_ProcessKeys(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 							gBeepToPlay = BEEP_1KHZ_60MS_OPTIONAL;
 						}
 					} else if (si4732mode == SI47XX_FM || si4732mode == SI47XX_AM) {
-						FM_SyncAMFreqFromChip();
-						if (gAM_FrequencyKHz < 500) gAM_FrequencyKHz = 500;
-						if (gAM_FrequencyKHz > 30000) gAM_FrequencyKHz = 30000;
-						FM_SaveAMFreqToEeprom();
+						/* FM 的 siCurrentFreq 是 10kHz 单位（如 10210=102.1MHz），
+						 * 不能同步成 AM kHz，否则会落到 10.210MHz 而不是上次 AM 频率 */
+						if (si4732mode == SI47XX_AM) {
+							FM_SyncAMFreqFromChip();
+							if (gAM_FrequencyKHz < 500) gAM_FrequencyKHz = 500;
+							if (gAM_FrequencyKHz > 30000) gAM_FrequencyKHz = 30000;
+							FM_SaveAMFreqToEeprom();
+						}
 						UI_DisplayFM();
 						UI_DisplayFmWait();
 						ST7565_BlitFullScreen();
