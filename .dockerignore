@@ -1,0 +1,15 @@
+.git
+.gitignore
+*.d
+*.o
+*.bin
+*.packed.bin
+f4hwn
+f4hwn.*
+compiled-firmware
+.cache
+compile_commands.json
+.vscode
+docs
+k5_eeprom.raw
+archive

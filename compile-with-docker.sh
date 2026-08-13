@@ -21,17 +21,34 @@ mkdir -p "$FIRMWARE_DIR"
 # Clean previously compiled firmware files
 rm -f "$FIRMWARE_DIR"/*
 
-# Clean up old Docker artifacts
-echo "🧽 Cleaning up old Docker artifacts..."
-docker system prune -f --volumes >/dev/null 2>&1 || true
+# -------------------- IMAGE ---------------------
 
-# Always rebuild the Docker image to ensure latest code changes
-echo "⚙️ Rebuilding Docker image '$IMAGE_NAME' (base=${BASE})..."
-docker rmi "$IMAGE_NAME" 2>/dev/null || true
-if ! docker build --pull --build-arg "ALPINE_TAG=${ALPINE_TAG}" -t "$IMAGE_NAME" .; then
-    echo "❌ Failed to build docker image"
-    exit 1
-fi
+ensure_image() {
+    if [ "${REBUILD:-0}" = "1" ]; then
+        docker rmi "$IMAGE_NAME" 2>/dev/null || true
+    fi
+    if docker image inspect "$IMAGE_NAME" >/dev/null 2>&1; then
+        echo "⚙️ Using existing Docker image '$IMAGE_NAME' (REBUILD=1 to rebuild)"
+        return 0
+    fi
+    echo "⚙️ Building Docker image '$IMAGE_NAME' (base=${BASE})..."
+    if ! docker build --build-arg "ALPINE_TAG=${ALPINE_TAG}" -t "$IMAGE_NAME" .; then
+        echo "❌ Failed to build docker image"
+        exit 1
+    fi
+}
+
+# Mount the host tree over /app so source edits compile without rebuilding the
+# image, and so stale image-side *.d files (e.g. /src/printf_config.h) are not used.
+compile_in_docker() {
+    target_glob="$1"
+    shift
+    docker run --rm \
+        -v "$PWD:/app" \
+        -w /app \
+        "$IMAGE_NAME" \
+        /bin/bash -c "make -s clean $* && make -s $* && cp ${target_glob}* compiled-firmware/"
+}
 
 # -------------------- CLEAN ALL ---------------------
 
@@ -50,30 +67,25 @@ clean() {
 
 custom() {
     echo "🔧 Compiling Custom..."
-    docker run -v "$FIRMWARE_DIR:/app/compiled-firmware" "$IMAGE_NAME" /bin/bash -c "\
-        rm -f ./compiled-firmware/* && cd /app && make -s \
+    compile_in_docker f4hwn.custom \
         EDITION_STRING=Custom \
-        TARGET=f4hwn.custom \
-        && cp f4hwn.custom* compiled-firmware/"
+        TARGET=f4hwn.custom
 }
 
 standard() {
     echo "📦 Compiling Standard..."
-    docker run -v "$FIRMWARE_DIR:/app/compiled-firmware" "$IMAGE_NAME" /bin/bash -c "\
-        rm -f ./compiled-firmware/* && cd /app && make -s \
+    compile_in_docker f4hwn.standard \
         ENABLE_SPECTRUM=0 \
         ENABLE_FMRADIO=0 \
         ENABLE_AIRCOPY=0 \
         ENABLE_NOAA=0 \
         EDITION_STRING=Standard \
-        TARGET=f4hwn.standard \
-        && cp f4hwn.standard* compiled-firmware/"
+        TARGET=f4hwn.standard
 }
 
 bandscope() {
     echo "📺 Compiling Bandscope..."
-    docker run -v "$FIRMWARE_DIR:/app/compiled-firmware" "$IMAGE_NAME" /bin/bash -c "\
-        rm -f ./compiled-firmware/* && cd /app && make -s \
+    compile_in_docker f4hwn.bandscope \
         ENABLE_SPECTRUM=1 \
         ENABLE_FMRADIO=0 \
         ENABLE_VOX=0 \
@@ -85,14 +97,12 @@ bandscope() {
         ENABLE_NOAA=0 \
         ENABLE_FEAT_F4HWN_RESCUE_OPS=0 \
         EDITION_STRING=Bandscope \
-        TARGET=f4hwn.bandscope \
-        && cp f4hwn.bandscope* compiled-firmware/"
+        TARGET=f4hwn.bandscope
 }
 
 si4732() {
     echo "📻 Compiling Si4732..."
-    docker run -v "$FIRMWARE_DIR:/app/compiled-firmware" "$IMAGE_NAME" /bin/bash -c "\
-        rm -f ./compiled-firmware/* && cd /app && make -s \
+    compile_in_docker f4hwn.si4732 \
         ENABLE_SI4732=1 \
         ENABLE_FMRADIO=1 \
         ENABLE_SPECTRUM=0 \
@@ -118,14 +128,12 @@ si4732() {
         ENABLE_NOAA=0 \
         ENABLE_FEAT_F4HWN_RESCUE_OPS=0 \
         EDITION_STRING=Si4732 \
-        TARGET=f4hwn.si4732 \
-        && cp f4hwn.si4732* compiled-firmware/"
+        TARGET=f4hwn.si4732
 }
 
 broadcast() {
     echo "📻 Compiling Broadcast..."
-    docker run -v "$FIRMWARE_DIR:/app/compiled-firmware" "$IMAGE_NAME" /bin/bash -c "\
-        cd /app && make -s \
+    compile_in_docker f4hwn.broadcast \
         ENABLE_SPECTRUM=0 \
         ENABLE_FMRADIO=1 \
         ENABLE_VOX=1 \
@@ -137,14 +145,12 @@ broadcast() {
         ENABLE_NOAA=0 \
         ENABLE_FEAT_F4HWN_RESCUE_OPS=0 \
         EDITION_STRING=Broadcast \
-        TARGET=f4hwn.broadcast \
-        && cp f4hwn.broadcast* compiled-firmware/"
+        TARGET=f4hwn.broadcast
 }
 
 basic() {
     echo "☘️ Compiling Basic..."
-    docker run -v "$FIRMWARE_DIR:/app/compiled-firmware" "$IMAGE_NAME" /bin/bash -c "\
-        cd /app && make -s \
+    compile_in_docker f4hwn.basic \
         ENABLE_SPECTRUM=1 \
         ENABLE_FMRADIO=1 \
         ENABLE_VOX=0 \
@@ -162,14 +168,12 @@ basic() {
         ENABLE_FEAT_F4HWN_NARROWER=1 \
         ENABLE_FEAT_F4HWN_RESCUE_OPS=0 \
         EDITION_STRING=Basic \
-        TARGET=f4hwn.basic \
-        && cp f4hwn.basic* compiled-firmware/"
+        TARGET=f4hwn.basic
 }
 
 rescueops() {
     echo "🚨 Compiling RescueOps..."
-    docker run -v "$FIRMWARE_DIR:/app/compiled-firmware" "$IMAGE_NAME" /bin/bash -c "\
-        cd /app && make -s \
+    compile_in_docker f4hwn.rescueops \
         ENABLE_SPECTRUM=0 \
         ENABLE_FMRADIO=0 \
         ENABLE_VOX=1 \
@@ -181,14 +185,12 @@ rescueops() {
         ENABLE_NOAA=1 \
         ENABLE_FEAT_F4HWN_RESCUE_OPS=1 \
         EDITION_STRING=RescueOps \
-        TARGET=f4hwn.rescueops \
-        && cp f4hwn.rescueops* compiled-firmware/"
+        TARGET=f4hwn.rescueops
 }
 
 game() {
     echo "🎮 Compiling Game..."
-    docker run -v "$FIRMWARE_DIR:/app/compiled-firmware" "$IMAGE_NAME" /bin/bash -c "\
-        cd /app && make -s \
+    compile_in_docker f4hwn.game \
         ENABLE_SPECTRUM=0 \
         ENABLE_FMRADIO=1 \
         ENABLE_VOX=0 \
@@ -199,23 +201,19 @@ game() {
         ENABLE_NOAA=0 \
         ENABLE_FEAT_F4HWN_RESCUE_OPS=0 \
         EDITION_STRING=Game \
-        TARGET=f4hwn.game \
-        && cp f4hwn.game* compiled-firmware/"
+        TARGET=f4hwn.game
 }
 
 # ------------------ MENU ------------------
 
 case "$1" in
     clean) clean ;;
-    custom) custom ;;
-    standard) standard ;;
-    bandscope) bandscope ;;
-    broadcast) broadcast ;;
-    basic) basic ;;
-    rescueops) rescueops ;;
-    game) game ;;
-    si4732) si4732 ;;
+    custom|standard|bandscope|broadcast|basic|rescueops|game|si4732)
+        ensure_image
+        "$1"
+        ;;
     all)
+        ensure_image
         bandscope
         broadcast
         basic
@@ -226,6 +224,7 @@ case "$1" in
     *)
         echo "Usage: BASE=alpine:<tag> $0 {clean|custom|standard|bandscope|broadcast|basic|rescueops|game|si4732|all}"
         echo "Examples: BASE=alpine:3.22 … | BASE=alpine:3.21 … | BASE=alpine:3.19 … | BASE=alpine:edge …"
+        echo "Rebuild image: REBUILD=1 $0 si4732"
         exit 1
         ;;
 esac
