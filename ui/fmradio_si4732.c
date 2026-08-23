@@ -456,22 +456,25 @@ static void UI_FM_DrawWaitPopup(void)
 {
 	const int16_t boxWidth = (int16_t)(LCD_WIDTH / 2);
 	const int16_t x0 = (int16_t)(boxWidth / 2.2);
-	const int16_t boxHeight = (int16_t)(boxWidth / 3); /* 原高度的一半 */
-	/* 高度减半后下移 (原高-新高)/2，方框垂直中心与减半前一致 */
-	const int16_t y0 = (int16_t)((boxHeight * 3) / 4);
-	static const char msg[] = "WAIT";
+	const int16_t boxHeightOrig = (int16_t)(boxWidth / 3); /* 原高度的一半 */
+	const int16_t boxHeight = (int16_t)(boxHeightOrig - 4); /* 从底部再减 4px */
+	/* 顶边与减 4px 前相同，只缩短底边 */
+	const int16_t y0 = (int16_t)((boxHeightOrig * 3) / 4);
+	static const char msg[] = "waiting";
 	/* gFontBig：7px 字宽 + 1px 间距 */
 	const uint8_t textW = (uint8_t)(sizeof(msg) - 1U) * 8U - 1U;
+	const int16_t x1 = (int16_t)(x0 + boxWidth - 1);
+	const int16_t y1 = (int16_t)(y0 + boxHeight - 1);
+
+	/* 黑框外侧 2px 用 0（无色）擦除，与底层界面隔开 */
+	UI_FillRectangleBuffer(gFrameBuffer, x0 - 2, y0 - 2, x1 + 2, y1 + 2, false);
 
 	/* 黑色实心背板 */
-	UI_FillRectangleBuffer(gFrameBuffer,
-		(uint8_t)x0, (uint8_t)y0,
-		(uint8_t)(x0 + boxWidth - 1), (uint8_t)(y0 + boxHeight - 1),
-		true);
+	UI_FillRectangleBuffer(gFrameBuffer, x0, y0, x1, y1, true);
 
 	const uint8_t textX = (uint8_t)(x0 + (boxWidth - textW) / 2);
 	const uint8_t textY = (uint8_t)(y0 + (boxHeight - 16) / 2);
-	/* 黑底上 XOR 大字 → 反色白字 WAIT */
+	/* 黑底上 XOR 大字 → 反色白字 waiting */
 	UI_FM_DrawBigStringAt(textX, textY, msg, true);
 }
 
@@ -524,7 +527,7 @@ void UI_DisplayFM(void)
 			static const uint8_t x[] = { 0, 26, 52, 78, 104 };
 			static const char * const label[] = { "AGC", "BW", "BFO", "AVC", "SMT" };
 			for (uint8_t i = 0; i < 5; i++) {
-				const uint8_t dx = (label[i][2] == '\0') ? 7U : 2U;
+				const uint8_t dx = (label[i][2] == '\0') ? 6U : 2U;
 				UI_FM_DrawSmallStringAt((uint8_t)(x[i] + dx), UI_FM_AM_OPT_LABEL_Y, label[i]);
 			}
 			UI_InvertRectangleBuffer(gFrameBuffer, x[focus < 5U ? focus : 0U], UI_FM_AM_OPT_INV_Y0,
@@ -553,7 +556,7 @@ void UI_DisplayFM(void)
 				else if (focus == 3) sprintf(valStr, "%s", avcVals[FM_GetAM_AvcIndex() < 4u ? FM_GetAM_AvcIndex() : 3]);
 				else sprintf(valStr, "%s", smtVals[FM_GetAM_SoftMuteIndex() < 4u ? FM_GetAM_SoftMuteIndex() : 0]);
 			}
-			UI_PrintStringSmallNormal(valStr, 0, 0, 6);
+			UI_FM_DrawSmallestAt(4, 49, valStr);
 		}
 	} else
 #endif
@@ -564,7 +567,7 @@ void UI_DisplayFM(void)
 			static const uint8_t x[] = { 0, 26, 52, 78, 104 };
 			static const char * const label[] = { "AUD", "BW", "ANT", "AVC", "SMT" };
 			for (uint8_t i = 0; i < 5; i++) {
-				const uint8_t dx = (label[i][2] == '\0') ? 7U : 2U;
+				const uint8_t dx = (label[i][2] == '\0') ? 6U : 2U;
 				if (i >= 3U)
 					UI_FM_DrawDashedStringAt((uint8_t)(x[i] + dx), UI_FM_AM_OPT_LABEL_Y, label[i]);
 				else
@@ -584,7 +587,7 @@ void UI_DisplayFM(void)
 				sprintf(valStr, "%s", bwVals[FM_GetFM_BW_Index() < 5U ? FM_GetFM_BW_Index() : 0U]);
 			else
 				sprintf(valStr, "%s", FM_GetFM_UseFMI() ? "FMI" : "AMI");
-			UI_PrintStringSmallNormal(valStr, 0, 0, 6);
+			UI_FM_DrawSmallestAt(4, 49, valStr);
 		}
 
 		/* RSSI 强度条：BK1080 RSSI（REG_10），在频率下方 */
