@@ -5,7 +5,6 @@
 #include <string.h>
 
 #include "app/fm.h"
-#include "driver/bk1080.h"
 #ifdef ENABLE_FM_SI4732
 #include "driver/si473x.h"
 #endif
@@ -22,10 +21,10 @@
 #ifdef ENABLE_FM_SI4732
 static void UI_FM_DrawStepUnderline_AM(uint8_t startX, uint8_t y, const char *freqStr);
 static void UI_FM_DrawStepUnderline_FM(uint8_t startX, uint8_t y, const char *freqStr);
-static void UI_FM_DrawSmeter(uint8_t x, uint8_t y, uint16_t units, uint8_t cells);
+static void UI_FM_DrawSmeter(uint8_t x, uint8_t y, uint8_t snr, uint8_t cells);
 #else
 static void UI_FM_DrawStepUnderline_FM(uint8_t startX, uint8_t y, const char *freqStr);
-static void UI_FM_DrawSmeter(uint8_t x, uint8_t y, uint16_t units, uint8_t cells);
+static void UI_FM_DrawSmeter(uint8_t x, uint8_t y, uint8_t snr, uint8_t cells);
 #endif
 
 static void UI_FM_DrawSmallStringAt(uint8_t x, uint8_t y, const char *s);
@@ -140,32 +139,28 @@ static void UI_FM_DrawStepUnderline_FM(uint8_t startX, uint8_t y, const char *fr
 	UI_DrawLineBuffer(gFrameBuffer, x1, (uint8_t)(y + 1), x2, (uint8_t)(y + 1), true);
 }
 
-static void UI_FM_DrawSmeter(uint8_t x, uint8_t y, uint16_t units, uint8_t cells)
+static void UI_FM_DrawSmeter(uint8_t x, uint8_t y, uint8_t snr, uint8_t cells)
 {
-	/* S数字 + 15 格；每格 4 单位；格子 6x7，间隔 1px；未到达格子用虚格纹理 */
+	/* SNR 每 2 dB 对应一级；格子 6x7，间隔 1px。 */
 	const uint8_t bw = 6;
 	const uint8_t bh = 7;
 	const uint8_t gap = 1;
 	if (cells == 0) return;
 
-	const uint16_t totalUnits = (uint16_t)cells * 4U;
-	if (units > totalUnits) units = totalUnits;
-
-	/* 达到的“格子数”：有任何强度就算到达该格子 */
-	uint8_t reached = (uint8_t)((units + 3U) / 4U);
-	if (reached > cells) reached = cells;
+	const uint8_t level = snr / 2U;
+	const uint8_t reached = level > cells ? cells : level;
 
 	/* 显示 S 数字：固定 3 字符宽度（例如 "S9 " / "S9+"），避免 S9↔S9+ 推动条形位置 */
 	char sStr[4] = {'S','0',' ','\0'};
-	if (reached == 0) {
+	if (level == 0) {
 		sStr[1] = '0';
-	} else if (reached > 9) {
+	} else if (level > 9) {
 		sStr[1] = '9';
 		sStr[2] = '+';
-	} else if (reached == 9) {
+	} else if (level == 9) {
 		sStr[1] = '9';
 	} else {
-		sStr[1] = (char)('0' + reached);
+		sStr[1] = (char)('0' + level);
 	}
 
 	/* S 数字在当前位置下移 1px */
@@ -227,44 +222,6 @@ static void UI_FM_DrawSmallStringAt(uint8_t x, uint8_t y, const char *s)
 			cx++;
 		}
 		cx = (uint8_t)(cx + 1); /* 字符间距 1px */
-	}
-}
-
-static void UI_FM_DrawDashedStringAt(uint8_t x, uint8_t y, const char *s)
-{
-	if (!s || !*s) return;
-	if (x >= 128) return;
-	if (y >= (FRAME_LINES * 8)) return;
-
-	const uint8_t row = (uint8_t)(y / 8);
-	const uint8_t shift = (uint8_t)(y % 8);
-
-	uint8_t cx = x;
-	for (const char *p = s; *p; p++) {
-		const char c = *p;
-		if (c <= ' ' || c >= 127) {
-			cx = (uint8_t)(cx + 7);
-			continue;
-		}
-		const uint8_t idx = (uint8_t)(c - ' ' - 1);
-		for (uint8_t col = 0; col < 6; col++) {
-			if (cx >= 128) break;
-			uint8_t b = gFontSmall[idx][col];
-			for (uint8_t bit = 0; bit < 8; bit++) {
-				if (((bit & 1U) == 0U) || ((col & 1U) != 0U))
-					b &= (uint8_t)~(1U << bit);
-			}
-			if (shift == 0) {
-				gFrameBuffer[row][cx] |= b;
-			} else {
-				gFrameBuffer[row][cx] |= (uint8_t)(b << shift);
-				if (row + 1 < FRAME_LINES) {
-					gFrameBuffer[row + 1][cx] |= (uint8_t)(b >> (8 - shift));
-				}
-			}
-			cx++;
-		}
-		cx = (uint8_t)(cx + 1);
 	}
 }
 
@@ -390,14 +347,6 @@ static void UI_FM_DisplayFrequencyAt(uint8_t x, uint8_t y, const char *string, b
 	}
 }
 
-static uint16_t UI_FM_MapRssiToUnits(uint8_t rssi, uint16_t fullScale, uint8_t cells)
-{
-	const uint16_t totalUnits = (uint16_t)cells * 4U;
-	if (fullScale == 0) return 0;
-	if (rssi > fullScale) rssi = (uint8_t)fullScale;
-	return (uint16_t)rssi * totalUnits / fullScale;
-}
-
 /* S 表正下方：RSSI 左缘对齐进度条左缘，SNR 右缘对齐进度条右缘 */
 static void UI_FM_DrawRsqBelowSmeter(uint8_t smeterX, uint8_t cells)
 {
@@ -406,7 +355,6 @@ static void UI_FM_DrawRsqBelowSmeter(uint8_t smeterX, uint8_t cells)
 	char valStr[12];
 
 	UI_FM_GetSmeterBarBounds(smeterX, cells, &barLeft, &barRight);
-	RSQ_GET();
 	sprintf(valStr, "RSSI %u", (unsigned)rsqStatus.resp.RSSI);
 	UI_FM_DrawSmallestAt(barLeft, UI_FM_RSQ_Y, valStr);
 	sprintf(valStr, "SNR %u", (unsigned)rsqStatus.resp.SNR);
@@ -495,30 +443,10 @@ void UI_DisplayFM(void)
 		const char *mod = (si4732mode == SI47XX_AM) ? "AM" : (si4732mode == SI47XX_LSB) ? "LSB" : (si4732mode == SI47XX_USB) ? "USB" : "CW";
 		/* 左上角第 0 行：模式标签，8px 大字体（font.c gFontBig） */
 		UI_PrintString(mod, 2, 0, 0, 8);
-		/* RSSI 强度条（方块）：在频率下方、分割线之上，左对齐 */
+		/* SNR 强度条：在频率下方。 */
 		if (gInputBoxIndex == 0) {
 			RSQ_GET();
-			uint16_t full_scale;
-			switch (si4732mode) {
-			case SI47XX_FM:
-				full_scale = 70;
-				break;
-			case SI47XX_LSB:
-			case SI47XX_USB:
-			case SI47XX_CW:
-				full_scale = 35;
-				break;
-			default: /* AM/SW */
-				full_scale = 45;
-				break;
-			}
-			/* SSB/CW：信号条打折（减半计算），RSSI 数字显示保持不变 */
-			uint8_t meterRssi = rsqStatus.resp.RSSI;
-			if (si4732mode == SI47XX_LSB || si4732mode == SI47XX_USB || si4732mode == SI47XX_CW) {
-				meterRssi = (uint8_t)(meterRssi / 2U);
-			}
-			const uint16_t units = UI_FM_MapRssiToUnits(meterRssi, full_scale, 15);
-			UI_FM_DrawSmeter(0, UI_FM_SMETER_Y, units, 15);
+			UI_FM_DrawSmeter(0, UI_FM_SMETER_Y, rsqStatus.resp.SNR, 15);
 			UI_FM_DrawRsqBelowSmeter(0, 15);
 		}
 		/* AM/SSB: AGC/BW/BFO/AVC/SMT. STP is indicated only by the underline. */
@@ -565,13 +493,10 @@ void UI_DisplayFM(void)
 		{
 			const uint8_t focus = FM_GetFM_OptionFocus();
 			static const uint8_t x[] = { 0, 26, 52, 78, 104 };
-			static const char * const label[] = { "AUD", "BW", "ANT", "AVC", "SMT" };
-			for (uint8_t i = 0; i < 5; i++) {
+			static const char * const label[] = { "AUD", "BW", "ANT" };
+			for (uint8_t i = 0; i < 3; i++) {
 				const uint8_t dx = (label[i][2] == '\0') ? 6U : 2U;
-				if (i >= 3U)
-					UI_FM_DrawDashedStringAt((uint8_t)(x[i] + dx), UI_FM_AM_OPT_LABEL_Y, label[i]);
-				else
-					UI_FM_DrawSmallStringAt((uint8_t)(x[i] + dx), UI_FM_AM_OPT_LABEL_Y, label[i]);
+				UI_FM_DrawSmallStringAt((uint8_t)(x[i] + dx), UI_FM_AM_OPT_LABEL_Y, label[i]);
 			}
 			UI_InvertRectangleBuffer(gFrameBuffer, x[focus < 3U ? focus : 0U], UI_FM_AM_OPT_INV_Y0,
 				(uint8_t)(x[focus < 3U ? focus : 0U] + 23U), 46);
@@ -590,12 +515,10 @@ void UI_DisplayFM(void)
 			UI_FM_DrawSmallestAt(4, 49, valStr);
 		}
 
-		/* RSSI 强度条：BK1080 RSSI（REG_10），在频率下方 */
+		/* SNR 强度条：在频率下方。 */
 		if (gInputBoxIndex == 0) {
-			const uint16_t st = BK1080_ReadRegister(BK1080_REG_10);
-			/* FM 满刻度 70，线性映射 */
-			const uint16_t units = (uint16_t)(uint8_t)BK1080_REG_10_GET_RSSI(st) * (15U * 4U) / 70U;
-			UI_FM_DrawSmeter(0, UI_FM_SMETER_Y, units, 15);
+			RSQ_GET();
+			UI_FM_DrawSmeter(0, UI_FM_SMETER_Y, rsqStatus.resp.SNR, 15);
 			UI_FM_DrawRsqBelowSmeter(0, 15);
 		}
 	}
